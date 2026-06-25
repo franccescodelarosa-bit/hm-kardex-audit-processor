@@ -1,0 +1,38 @@
+Comment: HM Kardex Audit Workflow
+
+StartAt: ReadAudit
+
+States:
+
+  ReadAudit:
+    Type: Task
+    Resource:
+      Fn::GetAtt:
+        - ReadAuditLambdaFunction
+        - Arn
+    Next: ReadFiles
+
+  ReadFiles:
+    Type: Task
+    Resource:
+      Fn::GetAtt:
+        - ReadFilesLambdaFunction
+        - Arn
+    Next: DownloadFiles
+  
+  DownloadFiles:
+    Type: Task
+    Resource:
+      Fn::GetAtt:
+        - DownloadFilesLambdaFunction
+        - Arn
+    Next: ParseFiles
+  
+  ParseFiles:
+    Type: Task
+    Resource:
+      Fn::GetAtt:
+        - ParseFilesLambdaFunction
+        - Arn
+
+    End: true

@@ -1,0 +1,69 @@
+service: hm-kardex-audit-processor
+
+frameworkVersion: "3"
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  architecture: arm64
+  region: us-east-1
+  stage: dev
+
+  environment:
+    DATABASE_URL: ${env:DATABASE_URL}
+    S3_BUCKET: ${env:AWS_S3_BUCKET}
+
+  iam:
+    role:
+      statements:
+         - Effect: Allow
+           Action:
+            - states:StartExecution
+           Resource: "*"
+
+         - Effect: Allow
+           Action:
+            - s3:GetObject
+           Resource:
+            - arn:aws:s3:::hm-kardex-audit-dev/*
+
+plugins:
+  - serverless-step-functions
+
+functions:
+
+  dispatcher:
+    handler: dist/handlers/dispatcher.handler
+    timeout: 30
+    memorySize: 256
+
+    environment:
+      STATE_MACHINE_ARN: arn:aws:states:us-east-1:238043187978:stateMachine:hm-kardex-audit-workflow-dev
+
+  readAudit:
+    handler: dist/handlers/read-audit.handler
+    timeout: 30
+    memorySize: 256
+  
+  readFiles:
+    handler: dist/handlers/read-files.handler
+    timeout: 30
+    memorySize: 256
+  
+  downloadFiles:
+    handler: dist/handlers/download-files.handler
+    timeout: 300
+    memorySize: 1024
+  
+  parseFiles:
+    handler: dist/handlers/parse-files.handler
+    timeout: 300
+    memorySize: 1024
+
+stepFunctions:
+  stateMachines:
+    auditWorkflow:
+      name: hm-kardex-audit-workflow-dev
+      definition:
+        ${file(step-functions/audit.yml)}
