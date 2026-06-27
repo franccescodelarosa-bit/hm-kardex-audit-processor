@@ -18,16 +18,8 @@ States:
       Fn::GetAtt:
         - ReadFilesLambdaFunction
         - Arn
-    Next: DownloadFiles
-  
-  DownloadFiles:
-    Type: Task
-    Resource:
-      Fn::GetAtt:
-        - DownloadFilesLambdaFunction
-        - Arn
     Next: ParseFiles
-  
+    
   ParseFiles:
     Type: Task
     Resource:
