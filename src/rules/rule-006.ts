@@ -1,6 +1,7 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
 import { InventoryItem } from "../models/inventory-item";
+import { CodeHelper } from "../helpers/code.helper";
 
 export class Rule006 {
     static execute(context: AuditData): Finding[] {
@@ -26,7 +27,7 @@ export class Rule006 {
 
         const products = new Map<string, InventoryItem[]>();
         for (const item of inventory) {
-            const code = item.code.trim().toUpperCase();
+            const code = CodeHelper.normalize(item.code);
             if (!products.has(code)) {
                 products.set(code, []);
             }

@@ -6,13 +6,33 @@ import { KardexParser } from "../parsers/kardex.parser";
 import { RuleEngine } from "../services/rule-engine.service";
 import { AuditContext } from "../models/audit-context";
 import { AuditContextRepository } from "../repositories/audit-context.repository";
+import { AuditResultRepository } from "../repositories/audit-results.repository";
+import { AuditRuleRepository } from "../repositories/audit-rule.repository";
 
 export const handler = async (event: any) => {
     console.log("PARSE FILES");
     const context: AuditContext = {
         kardexKeys: []
     };
-    for (const file of event.files) {
+    const files = [...event.files];
+    files.sort((a, b) => {    
+        if (a.file_type !== "KARDEX" && b.file_type === "KARDEX") {
+            return -1;
+        }
+        if (a.file_type === "KARDEX" && b.file_type !== "KARDEX") {
+            return 1;
+        }    
+        if (a.file_type === "KARDEX" && b.file_type === "KARDEX") {
+            return (a.month ?? 0) - (b.month ?? 0);
+        }
+        return 0;
+    });
+    console.log(event.files.map((f: any) => ({
+        month: f.month,
+        type: f.file_type,
+        name: f.file_name
+    })));
+    for (const file of files) {
         let localPath: string | null = null;
         try {
             localPath = await S3Service.download(file);
@@ -76,10 +96,13 @@ export const handler = async (event: any) => {
         kardex: [] as any[]
     };
 
+    console.log(context.kardexKeys);
+
     for (const key of context.kardexKeys) {
         const products = await AuditContextRepository.load<any[]>(key);
         auditData.kardex.push(...products);
     }
+    const ruleMap = await AuditRuleRepository.loadMap();
 
     const findings = RuleEngine.execute(auditData);
     console.log("======================================");
@@ -99,6 +122,12 @@ export const handler = async (event: any) => {
     console.log("======================================");
     // Mostrar solo los primeros hallazgos
     console.log(JSON.stringify(findings.slice(0, 20), null, 2));
+
+    await AuditResultRepository.saveAll(
+        event.auditJobId,
+        findings,
+        ruleMap
+    );
     return {
         auditJobId: event.auditJobId,
         contextKey

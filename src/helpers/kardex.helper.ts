@@ -21,20 +21,12 @@ export class KardexHelper {
             const last = movements[movements.length - 1];
             result.push({
                 month,
-                initialQuantity:
-                    first.balanceQuantity
-                    - first.entryQuantity
-                    + first.exitQuantity,
-                finalQuantity:
-                    last.balanceQuantity,
-                finalUnitCost:
-                    last.balanceUnitCost,
-                initialTotalCost:
-                    first.balanceTotalCost
-                    - first.entryTotalCost
-                    + first.exitTotalCost,
-                finalTotalCost:
-                    last.balanceTotalCost
+                initialQuantity: first.balanceQuantity,
+                initialUnitCost: first.balanceUnitCost,
+                finalQuantity: last.balanceQuantity,
+                finalUnitCost: last.balanceUnitCost,
+                initialTotalCost: first.balanceTotalCost,
+                finalTotalCost: last.balanceTotalCost,                
             });
         }
         result.sort((a, b) => a.month - b.month);

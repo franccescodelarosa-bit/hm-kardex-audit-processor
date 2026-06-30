@@ -12,7 +12,7 @@ export class Rule005 {
     }
 
     private static validateInventory(inventory: InventoryItem[],source: string,findings: Finding[]) {
-        for (const item of inventory) {
+        for (const item of inventory) {  
             if ( item.stock < 0 || item.unitCost < 0 || item.totalCost < 0) {
                 findings.push({
                     ruleId: "RULE_005",
@@ -48,12 +48,25 @@ export class Rule005 {
                     movement.balanceTotalCost < 0;
                 
                 if (hasNegative) {
+                    const negatives: string[] = [];
+                    if (movement.entryQuantity < 0) negatives.push("Cantidad Entrada");
+                    if (movement.entryUnitCost < 0) negatives.push("Costo Entrada");
+                    if (movement.entryTotalCost < 0) negatives.push("Total Entrada");
+
+                    if (movement.exitQuantity < 0) negatives.push("Cantidad Salida");
+                    if (movement.exitUnitCost < 0) negatives.push("Costo Salida");
+                    if (movement.exitTotalCost < 0) negatives.push("Total Salida");
+
+                    if (movement.balanceQuantity < 0) negatives.push("Cantidad Saldo");
+                    if (movement.balanceUnitCost < 0) negatives.push("Costo Saldo");
+                    if (movement.balanceTotalCost < 0) negatives.push("Total Saldo");
+
                     findings.push({
                         ruleId: "RULE_005",
                         productCode: product.code,
                         productName: product.description,
                         errorType: "NEGATIVE_BALANCE",
-                        description: "El Kardex presenta un saldo negativo.",
+                        description: `El Kardex presenta valores negativos en: ${negatives.join(", ")}.`,
                         recommendation:"Revise los movimientos anteriores, ajustes de inventario y valorización del producto.",
                         riskLevel: "CRITICO",
                         metadata: {
@@ -70,7 +83,8 @@ export class Rule005 {
                             entryTotalCost: movement.entryTotalCost,
                             exitQuantity: movement.exitQuantity,
                             exitUnitCost: movement.exitUnitCost,
-                            exitTotalCost: movement.exitTotalCost
+                            exitTotalCost: movement.exitTotalCost,
+                            negatives
                         }
                     });
                 }

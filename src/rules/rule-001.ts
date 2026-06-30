@@ -1,6 +1,7 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
 import { KardexProduct } from "../models/kardex-product";
+import { CodeHelper } from "../helpers/code.helper";
 
 export class Rule001 {
     private static equals(a: number, b: number): boolean {
@@ -10,10 +11,14 @@ export class Rule001 {
         const findings: Finding[] = [];
         const kardex = new Map<string, KardexProduct>();
         for (const product of data.kardex) {
-            kardex.set(product.code.trim().toUpperCase(), product);
+            kardex.set(
+                CodeHelper.normalize(product.code),
+                product
+            );
         }
         for (const inventory of data.finalInventory) {
-            const product = kardex.get(inventory.code);
+            const code = CodeHelper.normalize(inventory.code);
+            const product = kardex.get(code);            
             if (!product) {
                 findings.push({
                     ruleId: "RULE_001",
@@ -44,7 +49,7 @@ export class Rule001 {
 
             const balance = product.movements[product.movements.length - 1];
             const differences = [];
-            if (inventory.stock !== balance.balanceQuantity) {
+            if (!this.equals(inventory.stock, balance.balanceQuantity)) {
                 differences.push("Cantidad");
             }
             if (!this.equals(inventory.unitCost, balance.balanceUnitCost)) {
@@ -64,13 +69,16 @@ export class Rule001 {
                 description: `El inventario final no coincide con el saldo del Kardex (${differences.join(", ")}).`,
                 recommendation: "Verifique los movimientos del Kardex y el inventario final.",
                 riskLevel: "CRITICO",
-                metadata: {
+                metadata: {                    
+                    inventoryCode: inventory.code,
+                    normalizedCode: code,
                     inventoryStock: inventory.stock,
                     kardexStock: balance.balanceQuantity,
                     inventoryUnitCost: inventory.unitCost,
                     kardexUnitCost: balance.balanceUnitCost,
                     inventoryTotalCost: inventory.totalCost,
-                    kardexTotalCost: balance.balanceTotalCost
+                    kardexTotalCost: balance.balanceTotalCost,
+                    kardexMovements: product.movements.length
                 }
             });
         }

@@ -1,6 +1,7 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
-import { KardexHelper } from "../helpers/kardex.helper";
+import { KardexProduct } from "../models/kardex-product";
+import { CodeHelper } from "../helpers/code.helper";
 
 export class Rule003 {
 
@@ -9,24 +10,57 @@ export class Rule003 {
     }
 
     static execute(data: AuditData): Finding[] {
+
         const findings: Finding[] = [];
+
+        // Agrupar productos por código.
+        // El orden ya corresponde a Enero -> Diciembre
+        const history = new Map<string, KardexProduct[]>();
+
         for (const product of data.kardex) {
-            const months = KardexHelper.getMonthlyBalances(product);
+
+            const code = CodeHelper.normalize(product.code);
+
+            if (!history.has(code)) {
+                history.set(code, []);
+            }
+
+            history.get(code)!.push(product);
+        }
+
+        for (const [code, months] of history) {            
+
             if (months.length < 2) {
                 continue;
             }
+
             for (let i = 0; i < months.length - 1; i++) {
+
                 const current = months[i];
                 const next = months[i + 1];
+
+                const currentLast = current.movements[current.movements.length - 1];
+                const nextFirst = next.movements[0];
+
+                if (!currentLast || !nextFirst) {
+                    continue;
+                }
+
                 const differences: string[] = [];
 
                 // Costo Unitario
-                if (!this.equals(current.finalUnitCost, next.finalUnitCost)) {
+                if (!this.equals(
+                    currentLast.balanceUnitCost,
+                    nextFirst.balanceUnitCost
+                )) {
                     differences.push("Costo Unitario");
                 }
 
                 // Costo Total
-                if (!this.equals(current.finalTotalCost, next.initialTotalCost)) {
+                if (!this.equals(
+                    currentLast.balanceTotalCost,
+                    nextFirst.balanceTotalCost
+                )) {
                     differences.push("Costo Total");
                 }
 
@@ -36,23 +70,32 @@ export class Rule003 {
 
                 findings.push({
                     ruleId: "RULE_003",
-                    productCode: product.code,
-                    productName: product.description,
+                    productCode: current.code,
+                    productName: current.description,
                     errorType: "MONTHLY_COST_CONTINUITY_ERROR",
-                    description:
-                        `No existe continuidad de costos entre los meses ${current.month} y ${next.month}: ${differences.join(", ")}.`,
+                    description: `No existe continuidad de costos entre el cierre del mes ${i + 1} y el inicio del mes ${i + 2}: ${differences.join(", ")}.`,
                     recommendation:
-                        "Verifique la continuidad de los costos entre ambos períodos.",
+                        "Verifique que el costo unitario y el costo total del saldo final coincidan con el saldo inicial del siguiente período.",
                     riskLevel: "ALTO",
                     metadata: {
-                        currentMonth: current.month,
-                        nextMonth: next.month,
-                        current,
-                        next
+                        fromIndex: i + 1,
+                        toIndex: i + 2,
+                        finalBalance: {
+                            quantity: currentLast.balanceQuantity,
+                            unitCost: currentLast.balanceUnitCost,
+                            totalCost: currentLast.balanceTotalCost
+                        },
+                        initialBalance: {
+                            quantity: nextFirst.balanceQuantity,
+                            unitCost: nextFirst.balanceUnitCost,
+                            totalCost: nextFirst.balanceTotalCost
+                        },
+                        differences
                     }
                 });
             }
         }
+
         return findings;
     }
 }

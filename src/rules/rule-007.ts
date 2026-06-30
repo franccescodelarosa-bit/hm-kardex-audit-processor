@@ -1,80 +1,103 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
-import { KardexHelper } from "../helpers/kardex.helper";
+import { CodeHelper } from "../helpers/code.helper";
 
 export class Rule007 {
+
     private static equals(a: number, b: number): boolean {
         return Math.abs(a - b) < 0.01;
     }
-    static execute(data: AuditData): Finding[] {
-        const findings: Finding[] = [];
-        for (const product of data.kardex) {
-            const months = KardexHelper.getMonthlyBalances(product);
-            for (const month of months) {
-                // Aquí asumimos que el helper conserva los movimientos del mes.
-                // Si no los devuelve, basta con recorrer product.movements filtrando por mes.
-                const movements = product.movements.filter(
-                    m => m.month === month.month
-                );
-                const totalEntriesQty = movements.reduce(
-                    (sum, m) => sum + m.entryQuantity,
-                    0
-                );
-                const totalExitsQty = movements.reduce(
-                    (sum, m) => sum + m.exitQuantity,
-                    0
-                );
-                const totalEntriesCost = movements.reduce(
-                    (sum, m) => sum + m.entryTotalCost,
-                    0
-                );
-                const totalExitsCost = movements.reduce(
-                    (sum, m) => sum + m.exitTotalCost,
-                    0
-                );
-                const expectedFinalQty =
-                    month.initialQuantity +
-                    totalEntriesQty -
-                    totalExitsQty;
 
-                const expectedFinalCost =
-                    month.initialTotalCost +
-                    totalEntriesCost -
-                    totalExitsCost;
+    static execute(data: AuditData): Finding[] {
+
+        const findings: Finding[] = [];
+
+        for (const product of data.kardex) {
+
+            if (product.movements.length < 2) {
+                continue;
+            }
+
+            const normalizedCode = CodeHelper.normalize(product.code);
+
+            // Empezamos desde el segundo movimiento
+            for (let i = 1; i < product.movements.length; i++) {
+
+                const previous = product.movements[i - 1];
+                const current = product.movements[i];
+
+                const expectedQuantity =
+                    previous.balanceQuantity +
+                    current.entryQuantity -
+                    current.exitQuantity;
+
+                const expectedTotalCost =
+                    previous.balanceTotalCost +
+                    current.entryTotalCost -
+                    current.exitTotalCost;
 
                 const differences: string[] = [];
 
-                if (!this.equals(expectedFinalQty, month.finalQuantity)) {
+                if (!this.equals(expectedQuantity, current.balanceQuantity)) {
                     differences.push("Cantidad");
                 }
 
-                if (!this.equals(expectedFinalCost, month.finalTotalCost)) {
+                /*if (!this.equals(expectedTotalCost, current.balanceTotalCost)) {
                     differences.push("Costo Total");
-                }
+                }*/
 
+                
                 if (differences.length === 0) {
                     continue;
                 }
+
                 findings.push({
                     ruleId: "RULE_007",
                     productCode: product.code,
                     productName: product.description,
                     errorType: "INVALID_SUM",
-                    description:
-                        `Las sumatorias del Kardex no cuadran para el mes ${month.month}: ${differences.join(", ")}.`,
+                    description: `La operación ${current.operation} del ${current.date} no cumple la fórmula del Kardex: ${differences.join(", ")}.`,
                     recommendation:
-                        "Verifique los movimientos registrados y los saldos del Kardex.",
+                        "Verifique que el saldo anterior, las entradas y las salidas generen correctamente el saldo final.",
                     riskLevel: "CRITICO",
                     metadata: {
-                        month: month.month,
-                        expectedFinalQuantity: expectedFinalQty,
-                        actualFinalQuantity: month.finalQuantity,
-                        expectedFinalTotalCost: expectedFinalCost,
-                        actualFinalTotalCost: month.finalTotalCost
+                        month: current.month,
+                        movement: i + 1,
+                        operation: current.operation,
+                        document: current.document,
+
+                        previousBalance: {
+                            quantity: previous.balanceQuantity,
+                            totalCost: previous.balanceTotalCost
+                        },
+
+                        movimientos: {
+                            entryQuantity: current.entryQuantity,
+                            exitQuantity: current.exitQuantity,
+                            entryTotalCost: current.entryTotalCost,
+                            exitTotalCost: current.exitTotalCost
+                        },
+
+                        expectedBalance: {
+                            quantity: expectedQuantity,
+                            totalCost: expectedTotalCost
+                        },
+
+                        actualBalance: {
+                            quantity: current.balanceQuantity,
+                            totalCost: current.balanceTotalCost
+                        },
+
+                        differences
                     }
                 });
+
             }
+
         }
+
         return findings;
+
     }
+
 }
