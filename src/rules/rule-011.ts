@@ -1,9 +1,9 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
+import { DateHelper } from "../helpers/date.helper";
 
 export class Rule011 {
 
-    private static readonly ADJUSTMENT_OPERATION = "28";
     // Pendiente de validación funcional con el cliente.
     // Actualmente se considera una variación mayor al 50%.
     private static readonly COST_VARIATION_THRESHOLD = 0.50;
@@ -16,10 +16,6 @@ export class Rule011 {
             for (let i = 1; i < product.movements.length; i++) {
                 const previous = product.movements[i - 1];
                 const current = product.movements[i];
-                // Solo aplica a movimientos tipo 28
-                if (!this.isAdjustmentOperation(current.operation)) {
-                    continue;
-                }
                 if (previous.balanceUnitCost <= 0) {
                     continue;
                 }
@@ -42,7 +38,7 @@ export class Rule011 {
                         "Verifique la valorización del ajuste y su sustento documentario.",
                     riskLevel: "MEDIO",
                     metadata: {
-                        date: current.date,
+                        date: DateHelper.toDateString(current.date),
                         month: current.month,
                         document: current.document,
                         operation: current.operation,
@@ -55,13 +51,5 @@ export class Rule011 {
             }
         }
         return findings;
-    }
-
-    private static isAdjustmentOperation(operation: string): boolean {
-        const value = (operation ?? "").trim().toUpperCase();
-        return (
-            value === this.ADJUSTMENT_OPERATION ||
-            value.startsWith(this.ADJUSTMENT_OPERATION)
-        );
     }
 }

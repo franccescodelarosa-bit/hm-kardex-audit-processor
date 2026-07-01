@@ -1,5 +1,6 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
+import { DateHelper } from "../helpers/date.helper";
 export class Rule010 {
     private static readonly ADJUSTMENT_OPERATION = "28";
 
@@ -26,7 +27,7 @@ export class Rule010 {
                         "Verifique el sustento documentario del ajuste por faltante.",
                     riskLevel: "ALTO",
                     metadata: {
-                        date: movement.date,
+                        date: DateHelper.toDateString(movement.date),
                         month: movement.month,
                         document: movement.document,
                         operation: movement.operation,

@@ -2,6 +2,7 @@ import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
 import { DocumentHelper } from "../helpers/document.helper";
 import { KardexMovement } from "../models/kardex-movement";
+import { DateHelper } from "../helpers/date.helper";
 
 export class Rule004 {
     static execute(data: AuditData): Finding[] {
@@ -56,7 +57,7 @@ export class Rule004 {
                     "Verifique que la mercadería en tránsito haya sido registrada en el Kardex.",
                 riskLevel: "MEDIO",
                 metadata: {
-                    transitItem: transit.item,
+                    transitItem: DateHelper.toDateString(transit.issueDate),
                     issueDate: transit.issueDate,
                     warehouseDate: transit.warehouseDate,
                     supplierRuc: transit.supplierRuc,

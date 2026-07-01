@@ -1,5 +1,6 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
+import { DateHelper } from "../helpers/date.helper";
 export class Rule009 {
     private static readonly ADJUSTMENT_OPERATION = "28";
     static execute(data: AuditData): Finding[] {
@@ -23,7 +24,7 @@ export class Rule009 {
                     recommendation: "Verifique el sustento documentario del ajuste por sobrante.",
                     riskLevel: "ALTO",
                     metadata: {
-                        date: movement.date,
+                        date: DateHelper.toDateString(movement.date),
                         month: movement.month,
                         document: movement.document,
                         operation: movement.operation,

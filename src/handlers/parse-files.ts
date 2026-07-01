@@ -122,7 +122,7 @@ export const handler = async (event: any) => {
     console.log("======================================");
     // Mostrar solo los primeros hallazgos
     console.log(JSON.stringify(findings.slice(0, 20), null, 2));
-
+    
     await AuditResultRepository.saveAll(
         event.auditJobId,
         findings,
