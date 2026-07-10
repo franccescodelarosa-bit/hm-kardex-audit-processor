@@ -8,6 +8,7 @@ import { AuditContext } from "../models/audit-context";
 import { AuditContextRepository } from "../repositories/audit-context.repository";
 import { AuditResultRepository } from "../repositories/audit-results.repository";
 import { AuditRuleRepository } from "../repositories/audit-rule.repository";
+import { AuditRepository } from "../repositories/audit.repository";
 
 export const handler = async (event: any) => {
     console.log("PARSE FILES");
@@ -100,8 +101,10 @@ export const handler = async (event: any) => {
 
     for (const key of context.kardexKeys) {
         const products = await AuditContextRepository.load<any[]>(key);
+        console.log(key, "=>", Array.isArray(products), products.length);
         auditData.kardex.push(...products);
     }
+    console.log("TOTAL KARDEX:", auditData.kardex.length);
     const ruleMap = await AuditRuleRepository.loadMap();
 
     const findings = RuleEngine.execute(auditData);
@@ -128,6 +131,7 @@ export const handler = async (event: any) => {
         findings,
         ruleMap
     );
+    await AuditRepository.complete(event.auditJobId);
     return {
         auditJobId: event.auditJobId,
         contextKey

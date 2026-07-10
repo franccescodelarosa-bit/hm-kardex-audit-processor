@@ -11,4 +11,16 @@ export class AuditRepository {
         );
         return result.rows[0] ?? null;
     }
+    static async complete(id: string): Promise<void> {
+        await db.query(
+            `
+            UPDATE audit_jobs
+            SET
+                status = 'COMPLETED',
+                completed_at = NOW()
+            WHERE id = $1;
+            `,
+            [id]
+        );
+    }
 }

@@ -57,7 +57,8 @@ export class Rule008 {
                 riskLevel: "ALTO",
                 metadata: {
                     source: "KARDEX",
-                    date: DateHelper.toDateString(product.movements?.[0]?.date),
+                    month: reference.month,
+                    date: DateHelper.toDateString(reference.date),
                     document: reference.document
                 }
             });

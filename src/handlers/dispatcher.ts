@@ -2,7 +2,12 @@ import { SFNClient, StartExecutionCommand} from "@aws-sdk/client-sfn";
 const client = new SFNClient({ region: process.env.AWS_REGION });
 export const handler = async (event: any) => {
 console.log("RAW EVENT", event);
-    const payload = typeof event === "string" ? JSON.parse(event) : event;
+    const payload =
+    event.Records && event.Records.length > 0
+        ? JSON.parse(event.Records[0].body)
+        : typeof event === "string"
+            ? JSON.parse(event)
+            : event;
     console.log("PAYLOAD", payload);
     const auditJobId = payload.auditJobId;
     if (!auditJobId) {

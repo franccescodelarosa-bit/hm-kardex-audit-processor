@@ -1,12 +1,19 @@
 export class CodeHelper {
 
-    static normalize(code: string): string {
+    static normalize(code: string | number): string {
 
-        return (code ?? "")
+        const value = String(code ?? "")
             .trim()
-            .toUpperCase()
-            .replace(/^0+/, "");
+            .toUpperCase();
 
+        // Extraer el primer bloque numérico
+        const match = value.match(/\d+/);
+
+        if (!match) {
+            return value;
+        }
+
+        return match[0].replace(/^0+/, "") || "0";
     }
 
 }

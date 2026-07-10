@@ -9,7 +9,11 @@ export class Rule004 {
         const findings: Finding[] = [];
 
         // Índice de documentos registrados en el Kardex (solo ingresos)
-        const documents = new Map<string, KardexMovement[]>();
+        const documents = new Map<string, {
+            productCode: string;
+            productName: string;
+            movement: KardexMovement;
+        }[]>();
         for (const product of data.kardex) {
             for (const movement of product.movements) {
 
@@ -28,7 +32,11 @@ export class Rule004 {
                     documents.set(normalizedDocument, []);
                 }
 
-                documents.get(normalizedDocument)!.push(movement);
+                documents.get(normalizedDocument)!.push({
+                    productCode: product.code,
+                    productName: product.description,
+                    movement
+                });
             }
         }
 
@@ -37,10 +45,18 @@ export class Rule004 {
             const normalizedDocument =
                 DocumentHelper.normalize(transit.document);
 
-            const matches =
-                documents.get(normalizedDocument) ?? [];
-            
-            // Encontrado
+            const matches = documents.get(normalizedDocument) ?? [];
+
+            const month = matches.length > 0
+                ? matches[0].movement.month
+                : null;
+
+            const duplicatedItems = matches.length;    
+            const products = matches
+                .map(x => `${x.productCode} - ${x.productName}`)
+                .join("\n");        
+
+                // Encontrado
             if (matches.length > 0) {
                 continue;
             }
@@ -58,6 +74,9 @@ export class Rule004 {
                 riskLevel: "MEDIO",
                 metadata: {
                     transitItem: DateHelper.toDateString(transit.issueDate),
+                    month,
+                    duplicatedItems,
+                    products,
                     issueDate: transit.issueDate,
                     warehouseDate: transit.warehouseDate,
                     supplierRuc: transit.supplierRuc,
