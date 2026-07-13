@@ -27,6 +27,7 @@ export class RuleEngine {
             ...Rule009.execute(data),
             ...Rule010.execute(data),
             ...Rule011.execute(data),
+            ...Rule012.execute(data),
             ...Rule013.execute(data)
         ];
     }
