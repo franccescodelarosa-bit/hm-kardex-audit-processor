@@ -32,7 +32,7 @@ export class Rule011 {
 
     // Pendiente de validación funcional con el cliente.
     // Actualmente se considera una variación mayor al 50%.
-    private static readonly COST_VARIATION_THRESHOLD = 0.50;
+    private static readonly COST_VARIATION_THRESHOLD = 0.25;
     static execute(data: AuditData): Finding[] {
         const findings: Finding[] = [];
         for (const product of data.kardex) {

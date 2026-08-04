@@ -3,10 +3,12 @@ export interface TransitItem {
     issueDate: Date;
     warehouseDate: Date;
     document: string;
+    acquiredCodes: string;          // NUEVO
     supplierRuc: string;
     supplier: string;
     subtotal: number;
     igv: number;
     freight: number;
-    total: number;
+    otherCosts: number;             // NUEVO
+    expectedCost: number;           // antes total
 }

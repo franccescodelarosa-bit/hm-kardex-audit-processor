@@ -17,12 +17,14 @@ export class TransitParser {
                 issueDate: row.getCell(2).value as Date,
                 warehouseDate: row.getCell(3).value as Date,
                 document: String(row.getCell(4).value ?? ""),
-                supplierRuc: String(row.getCell(5).value ?? ""),
-                supplier: String(row.getCell(6).value ?? ""),
-                subtotal: Number(row.getCell(7).value ?? 0),
-                igv: Number(row.getCell(8).value ?? 0),
-                freight: Number(row.getCell(9).value ?? 0),
-                total: Number(row.getCell(10).value ?? 0)
+                acquiredCodes: String(row.getCell(5).value ?? ""),
+                supplierRuc: String(row.getCell(6).value ?? ""),
+                supplier: String(row.getCell(7).value ?? ""),
+                subtotal: Number(row.getCell(8).value ?? 0),
+                igv: Number(row.getCell(9).value ?? 0),
+                freight: Number(row.getCell(10).value ?? 0),
+                otherCosts: Number(row.getCell(11).value ?? 0),
+                expectedCost: Number(row.getCell(12).value ?? 0)
             });
         }
         console.log(`Transit items: ${items.length}`);

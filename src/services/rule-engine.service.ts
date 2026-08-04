@@ -13,6 +13,7 @@ import { Rule010 } from "../rules/rule-010";
 import { Rule011 } from "../rules/rule-011";
 import { Rule012 } from "../rules/rule-012";
 import { Rule013 } from "../rules/rule-013";
+import { Rule014 } from "../rules/rule-014";
 export class RuleEngine {
     static execute(data: AuditData): Finding[] {
         return [
@@ -28,7 +29,8 @@ export class RuleEngine {
             ...Rule010.execute(data),
             ...Rule011.execute(data),
             ...Rule012.execute(data),
-            ...Rule013.execute(data)
+            ...Rule013.execute(data),
+            ...Rule014.execute(data)
         ];
     }
 }

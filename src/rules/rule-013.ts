@@ -17,6 +17,9 @@ interface MonthlySummary {
     expectedFinalQuantity: number;
     expectedFinalTotalCost: number;
 
+    lowerCostLimit: number;
+    upperCostLimit: number;
+
     finalQuantity: number;
     finalTotalCost: number;
 
@@ -31,8 +34,19 @@ interface MonthlySummary {
 
 export class Rule013 {
 
+    /*
+     * Tolerancia para comparación exacta de cantidades.
+     */
+    private static readonly QUANTITY_TOLERANCE = 0.01;
+
+    /*
+     * Tolerancia contable del costo valorizado:
+     * ±2.5%
+     */
+    private static readonly COST_TOLERANCE_PERCENT = 0.025;
+
     private static equals(a: number, b: number): boolean {
-        return Math.abs(a - b) < 0.01;
+        return Math.abs(a - b) < this.QUANTITY_TOLERANCE;
     }
 
     private static round(value: number): number {
@@ -54,10 +68,13 @@ export class Rule013 {
                 continue;
             }
 
-            const normalizedCode = CodeHelper.normalize(product.code);
+            const normalizedCode =
+                CodeHelper.normalize(product.code);
 
             /*
-             * Agrupamos movimientos por mes.
+             * =========================================================
+             * AGRUPAR MOVIMIENTOS POR MES
+             * =========================================================
              */
             const movementsByMonth =
                 new Map<number, typeof product.movements>();
@@ -69,7 +86,10 @@ export class Rule013 {
                 }
 
                 if (!movementsByMonth.has(movement.month)) {
-                    movementsByMonth.set(movement.month, []);
+                    movementsByMonth.set(
+                        movement.month,
+                        []
+                    );
                 }
 
                 movementsByMonth
@@ -78,7 +98,9 @@ export class Rule013 {
             }
 
             /*
-             * Validamos cada mes.
+             * =========================================================
+             * VALIDAR CADA MES
+             * =========================================================
              */
             for (const [month, movements] of movementsByMonth) {
 
@@ -87,15 +109,37 @@ export class Rule013 {
                 }
 
                 const firstMovement = movements[0];
+
                 const lastMovement =
                     movements[movements.length - 1];
 
                 /*
-                 * Reconstrucción del saldo inicial:
+                 * =====================================================
+                 * SALDO INICIAL
+                 * =====================================================
                  *
-                 * Inicial + Entrada - Salida = Saldo
+                 * El saldo inicial NO se mezcla con las entradas.
                  *
-                 * Inicial = Saldo - Entrada + Salida
+                 * Se reconstruye usando el saldo resultante del primer
+                 * movimiento:
+                 *
+                 * Saldo Inicial
+                 * + Entrada
+                 * - Salida
+                 * = Saldo Final del movimiento
+                 *
+                 * Por tanto:
+                 *
+                 * Saldo Inicial
+                 * = Saldo Final
+                 * - Entrada
+                 * + Salida
+                 *
+                 * Esto permite separar:
+                 *
+                 * - Saldo inicial
+                 * - Entradas reales del período
+                 * - Salidas reales del período
                  */
                 const initialQuantity =
                     firstMovement.balanceQuantity
@@ -108,34 +152,52 @@ export class Rule013 {
                     + firstMovement.exitTotalCost;
 
                 /*
-                 * Sumatorias mensuales.
+                 * =====================================================
+                 * SUMA DE ENTRADAS DEL MES
+                 * =====================================================
+                 *
+                 * Aquí se imprimen únicamente las columnas ENTRADAS
+                 * del Kardex.
                  */
-                const totalEntryQuantity = movements.reduce(
-                    (sum, movement) =>
-                        sum + movement.entryQuantity,
-                    0
-                );
+                const totalEntryQuantity =
+                    movements.reduce(
+                        (sum, movement) =>
+                            sum + movement.entryQuantity,
+                        0
+                    );
 
-                const totalEntryCost = movements.reduce(
-                    (sum, movement) =>
-                        sum + movement.entryTotalCost,
-                    0
-                );
-
-                const totalExitQuantity = movements.reduce(
-                    (sum, movement) =>
-                        sum + movement.exitQuantity,
-                    0
-                );
-
-                const totalExitCost = movements.reduce(
-                    (sum, movement) =>
-                        sum + movement.exitTotalCost,
-                    0
-                );
+                const totalEntryCost =
+                    movements.reduce(
+                        (sum, movement) =>
+                            sum + movement.entryTotalCost,
+                        0
+                    );
 
                 /*
-                 * Saldo final real.
+                 * =====================================================
+                 * SUMA DE SALIDAS DEL MES
+                 * =====================================================
+                 */
+                const totalExitQuantity =
+                    movements.reduce(
+                        (sum, movement) =>
+                            sum + movement.exitQuantity,
+                        0
+                    );
+
+                const totalExitCost =
+                    movements.reduce(
+                        (sum, movement) =>
+                            sum + movement.exitTotalCost,
+                        0
+                    );
+
+                /*
+                 * =====================================================
+                 * SALDO FINAL REAL
+                 * =====================================================
+                 *
+                 * Se toma del último movimiento del mes.
                  */
                 const finalQuantity =
                     lastMovement.balanceQuantity;
@@ -144,40 +206,108 @@ export class Rule013 {
                     lastMovement.balanceTotalCost;
 
                 /*
-                 * Saldo final calculado.
+                 * =====================================================
+                 * CANTIDAD ESPERADA
+                 * =====================================================
+                 *
+                 * La cantidad debe cumplir:
+                 *
+                 * Saldo Inicial
+                 * + Entradas
+                 * - Salidas
+                 * = Saldo Final
                  */
                 const expectedFinalQuantity =
                     initialQuantity
                     + totalEntryQuantity
                     - totalExitQuantity;
 
+                /*
+                 * =====================================================
+                 * COSTO VALORIZADO CALCULADO
+                 * =====================================================
+                 *
+                 * Este valor NO se compara por igualdad exacta.
+                 *
+                 * Se utiliza como base para calcular el rango
+                 * permitido de ±2.5%.
+                 */
                 const expectedFinalTotalCost =
                     initialTotalCost
                     + totalEntryCost
                     - totalExitCost;
 
                 /*
-                 * Diferencias reales.
+                 * =====================================================
+                 * RANGO PERMITIDO DEL COSTO
+                 * =====================================================
+                 *
+                 * Mínimo = resultado × 97.5%
+                 * Máximo = resultado × 102.5%
+                 */
+                const lowerCostLimit =
+                    expectedFinalTotalCost
+                    * (
+                        1
+                        - this.COST_TOLERANCE_PERCENT
+                    );
+
+                const upperCostLimit =
+                    expectedFinalTotalCost
+                    * (
+                        1
+                        + this.COST_TOLERANCE_PERCENT
+                    );
+
+                /*
+                 * =====================================================
+                 * DIFERENCIAS
+                 * =====================================================
                  */
                 const quantityDifference =
-                    expectedFinalQuantity - finalQuantity;
+                    expectedFinalQuantity
+                    - finalQuantity;
 
                 const totalCostDifference =
-                    expectedFinalTotalCost - finalTotalCost;
+                    expectedFinalTotalCost
+                    - finalTotalCost;
 
+                /*
+                 * =====================================================
+                 * VALIDACIÓN DE CANTIDAD
+                 * =====================================================
+                 *
+                 * Debe ser prácticamente exacta.
+                 */
                 const quantityIsValid =
                     this.equals(
                         expectedFinalQuantity,
                         finalQuantity
                     );
 
+                /*
+                 * =====================================================
+                 * VALIDACIÓN DE COSTO
+                 * =====================================================
+                 *
+                 * El saldo final real debe encontrarse dentro de:
+                 *
+                 * 97.5% <= Saldo Final Real <= 102.5%
+                 *
+                 * del costo valorizado calculado.
+                 */
                 const totalCostIsValid =
-                    this.equals(
-                        expectedFinalTotalCost,
-                        finalTotalCost
-                    );
+                    finalTotalCost >= lowerCostLimit
+                    &&
+                    finalTotalCost <= upperCostLimit;
 
+                /*
+                 * =====================================================
+                 * RESUMEN
+                 * =====================================================
+                 */
                 const summary: MonthlySummary = {
+
                     month,
 
                     initialQuantity:
@@ -204,6 +334,12 @@ export class Rule013 {
                     expectedFinalTotalCost:
                         this.round(expectedFinalTotalCost),
 
+                    lowerCostLimit:
+                        this.round(lowerCostLimit),
+
+                    upperCostLimit:
+                        this.round(upperCostLimit),
+
                     finalQuantity:
                         this.round(finalQuantity),
 
@@ -220,12 +356,14 @@ export class Rule013 {
                         this.round(totalCostDifference),
 
                     quantityIsValid,
+
                     totalCostIsValid
                 };
-               
 
                 /*
-                 * Construcción de diferencias.
+                 * =====================================================
+                 * CONSTRUCCIÓN DE DIFERENCIAS
+                 * =====================================================
                  */
                 const differences: string[] = [];
 
@@ -234,43 +372,83 @@ export class Rule013 {
                 }
 
                 if (!totalCostIsValid) {
-                    differences.push("Costo valorizado");
+                    differences.push(
+                        "Costo valorizado fuera del rango permitido"
+                    );
                 }
 
                 /*
-                 * Si todo cuadra, no generamos finding.
+                 * Si cantidad y costo cumplen, no existe observación.
                  */
                 if (differences.length === 0) {
                     continue;
                 }
 
+                /*
+                 * =====================================================
+                 * FINDING
+                 * =====================================================
+                 */
                 findings.push({
+
                     ruleId: "RULE_013",
-                    productCode: product.code,
-                    productName: product.description,
-                    errorType: "INVALID_MONTHLY_SUM",
+
+                    productCode:
+                        product.code,
+
+                    productName:
+                        product.description,
+
+                    errorType:
+                        "INVALID_MONTHLY_SUM",
 
                     description:
                         `Las sumatorias mensuales del producto ` +
-                        `${product.code} no cumplen la fórmula ` +
-                        `Saldo Inicial + Entradas - Salidas = Saldo Final ` +
-                        `para el mes ${month}. Diferencias: ` +
-                        `${differences.join(", ")}.`,
+                        `${product.code} presentan diferencias ` +
+                        `para el mes ${month}. ` +
+                        `La cantidad debe cumplir la fórmula ` +
+                        `Saldo Inicial + Entradas - Salidas = Saldo Final. ` +
+                        `El costo valorizado final debe encontrarse ` +
+                        `entre el 97.5% y el 102.5% del costo calculado. ` +
+                        `Diferencias: ${differences.join(", ")}.`,
 
                     recommendation:
-                        "Verifique las sumatorias mensuales de entradas, " +
-                        "salidas y saldos finales del producto.",
+                        "Verifique el saldo inicial, las sumatorias " +
+                        "mensuales de entradas y salidas, y confirme " +
+                        "que el costo valorizado final se encuentre " +
+                        "dentro del rango permitido de ±2.5%.",
 
-                    riskLevel: "CRITICO",
+                    riskLevel:
+                        "CRITICO",
 
                     metadata: {
+
                         month,
+
                         normalizedCode,
 
+                        /*
+                         * SALDO INICIAL
+                         *
+                         * Se mantiene separado de las entradas.
+                         */
+                        initialBalance: {
+                            quantity:
+                                summary.initialQuantity,
+
+                            totalCost:
+                                summary.initialTotalCost
+                        },
+
+                        /*
+                         * SUMATORIAS REALES DEL KARDEX
+                         */
                         totals: {
+
                             entry: {
                                 quantity:
                                     summary.totalEntryQuantity,
+
                                 totalCost:
                                     summary.totalEntryCost
                             },
@@ -278,35 +456,58 @@ export class Rule013 {
                             exit: {
                                 quantity:
                                     summary.totalExitQuantity,
+
                                 totalCost:
                                     summary.totalExitCost
                             }
                         },
 
-                        initialBalance: {
-                            quantity:
-                                summary.initialQuantity,
-                            totalCost:
-                                summary.initialTotalCost
-                        },
-
+                        /*
+                         * RESULTADO CALCULADO
+                         */
                         expectedFinalBalance: {
+
                             quantity:
                                 summary.expectedFinalQuantity,
+
                             totalCost:
                                 summary.expectedFinalTotalCost
                         },
 
+                        /*
+                         * RANGO DE TOLERANCIA DEL COSTO
+                         */
+                        costTolerance: {
+
+                            percentage: 2.5,
+
+                            lowerLimit:
+                                summary.lowerCostLimit,
+
+                            upperLimit:
+                                summary.upperCostLimit
+                        },
+
+                        /*
+                         * SALDO FINAL REAL DEL KARDEX
+                         */
                         actualFinalBalance: {
+
                             quantity:
                                 summary.finalQuantity,
+
                             totalCost:
                                 summary.finalTotalCost
                         },
 
+                        /*
+                         * DIFERENCIAS INFORMATIVAS
+                         */
                         difference: {
+
                             quantity:
                                 summary.quantityDifference,
+
                             totalCost:
                                 summary.totalCostDifference
                         },
@@ -323,7 +524,9 @@ export class Rule013 {
         console.log("");
         console.log("==========================================");
         console.log("RULE_013 - FIN");
-        console.log(`Findings encontrados: ${findings.length}`);
+        console.log(
+            `Findings encontrados: ${findings.length}`
+        );
         console.log("==========================================");
 
         return findings;
