@@ -3,10 +3,9 @@ import { Finding } from "../models/finding";
 import { DocumentHelper } from "../helpers/document.helper";
 import { KardexMovement } from "../models/kardex-movement";
 import { DateHelper } from "../helpers/date.helper";
-import { CodeHelper } from "../helpers/code.helper";
-
+const MAX_DIFFERENCE_PERCENT = 5;
 export class Rule012 {
-
+    
     // Documento que queremos rastrear
     private static readonly DEBUG_DOCUMENT = "Fac-F001-1588";
 
@@ -81,49 +80,31 @@ export class Rule012 {
             // 4. SUMA DEL KARDEX
             // ========================================================
 
-            const acquiredCodes = transit.acquiredCodes
-                .split(/[-,;\n]/)
-                .map(code => CodeHelper.normalize(code))
-                .filter(Boolean);
+            const kardexTotal = matches.reduce(
+                (sum, product) =>
+                    sum + Number(product.movement.entryTotalCost || 0),
+                0
+            );
 
-            let kardexTotal = 0;
-
-            const evaluatedProducts: {
-                code: string;
-                description: string;
-                cost: number;
-            }[] = [];
-
-            for (const code of acquiredCodes) {
-
-                const productMatches = matches.filter(x =>
-                    CodeHelper.normalize(x.productCode) === code
-                );
-
-                for (const product of productMatches) {
-
-                    kardexTotal += Number(product.movement.entryTotalCost);
-
-                    evaluatedProducts.push({
-                        code: product.productCode,
-                        description: product.productName,
-                        cost: product.movement.entryTotalCost
-                    });
-                }
-            }
+            const evaluatedProducts = matches.map(product => ({
+                code: product.productCode,
+                description: product.productName,
+                cost: Number(product.movement.entryTotalCost || 0)
+            }));
 
             const expectedCost = Number(transit.expectedCost || 0);
 
             const difference = Number(
                 (expectedCost - kardexTotal).toFixed(2)
             );
-
-            // Si prácticamente son iguales
-            if (Math.abs(difference) <= 0.01) {
-                continue;
-            }
-
-            const kardexLower = kardexTotal < expectedCost;
+            const differencePercent =
+                expectedCost === 0
+                    ? kardexTotal === 0
+                        ? 0
+                        : 100
+                    : Math.abs(difference / expectedCost) * 100;
+                    
+            const isIncident = differencePercent > MAX_DIFFERENCE_PERCENT;
 
             findings.push({
                 ruleId: "RULE_012",
@@ -131,29 +112,24 @@ export class Rule012 {
                 productCode: "",
                 productName: "",
 
-                errorType: kardexLower
-                    ? "MISSING_COSTS"
-                    : "OVERCAPITALIZED_COSTS",
+                errorType: isIncident
+                    ? "COST_DIFFERENCE"
+                    : "ACCEPTED",
 
-                description: kardexLower
-                    ? `El costo registrado en el Kardex (${kardexTotal.toFixed(
-                        2
-                    )}) es inferior al costo esperado (${expectedCost.toFixed(
-                        2
-                    )}).`
-                    : `El costo registrado en el Kardex (${kardexTotal.toFixed(
-                        2
-                    )}) es superior al costo esperado (${expectedCost.toFixed(
-                        2
-                    )}).`,
+                description: isIncident
+                    ? `El documento presenta una diferencia de ${differencePercent.toFixed(2)}% entre el valor esperado y el valor registrado en Kardex.`
+                    : `El documento presenta una diferencia de ${differencePercent.toFixed(2)}%, dentro del porcentaje permitido.`,
 
-                recommendation: kardexLower
-                    ? "Verifique que todos los costos asociados a la compra hayan sido capitalizados en el Kardex."
-                    : "Verifique que no se hayan capitalizado costos que no corresponden a la operación.",
+                recommendation: isIncident
+                    ? "Verifique la diferencia entre el valor del documento y la valorización registrada en el Kardex."
+                    : "No requiere acción. La diferencia se encuentra dentro del porcentaje permitido.",
+               
 
-                riskLevel: "MEDIO",
+                riskLevel: isIncident
+                    ? "MEDIO"
+                    : "BAJO",
 
-                metadata: {
+                 metadata: {
                     issueDate: transit.issueDate,
                     warehouseDate: transit.warehouseDate,
 
@@ -166,9 +142,15 @@ export class Rule012 {
                     kardexCost: kardexTotal,
 
                     difference,
+                    differencePercent,
+
+                    thresholdPercent: MAX_DIFFERENCE_PERCENT,
+
+                    isIncident,
 
                     movements: matches.length,
                     evaluatedProducts,
+
                     transitItem: DateHelper.toDateString(
                         transit.issueDate
                     )

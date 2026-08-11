@@ -36,16 +36,13 @@ export class Rule002 {
                     continue;
                 }
                 const differences: string[] = [];
-                if (!this.equals(currentLast.balanceQuantity, nextFirst.balanceQuantity)) {
+                if (!this.equals(
+                    currentLast.balanceQuantity,
+                    nextFirst.balanceQuantity
+                )) {
                     differences.push("Cantidad");
                 }
-                if (!this.equals(currentLast.balanceUnitCost, nextFirst.balanceUnitCost)) {
-                    differences.push("Costo Unitario");
-                }
-                if (!this.equals(currentLast.balanceTotalCost, nextFirst.balanceTotalCost)) {
-                    differences.push("Costo Total");
-                }
-                
+
                 if (differences.length === 0) {
                     continue;
                 }
@@ -59,19 +56,12 @@ export class Rule002 {
                         "Verifique que el saldo final del período coincida con el saldo inicial del siguiente.",
                     riskLevel: "ALTO",
                     metadata: {
-                        "fromMonth": i + 1,
-                        "toMonth": i + 2,
-                        finalBalance: {
-                            quantity: currentLast.balanceQuantity,
-                            unitCost: currentLast.balanceUnitCost,
-                            totalCost: currentLast.balanceTotalCost
-                        },
-                        initialBalance: {
-                            quantity: nextFirst.balanceQuantity,
-                            unitCost: nextFirst.balanceUnitCost,
-                            totalCost: nextFirst.balanceTotalCost
-                        },
-                        differences
+                        fromMonth: i + 1,
+                        toMonth: i + 2,
+                        finalQuantity: currentLast.balanceQuantity,
+                        initialQuantity: nextFirst.balanceQuantity,
+                        difference:
+                            currentLast.balanceQuantity - nextFirst.balanceQuantity
                     }
                 });
             }

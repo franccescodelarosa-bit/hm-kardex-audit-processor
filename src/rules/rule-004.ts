@@ -152,7 +152,7 @@ export class Rule004 {
                     supplier: transit.supplier,
 
                     // IMPORTANTE PARA INVESTIGAR RULE_012
-                    transitTotal: transit.total,
+                    transitTotal: transit.expectedCost,
 
                     matchedProducts: matches.map(x => ({
                         productCode: x.productCode,
@@ -174,20 +174,23 @@ export class Rule004 {
             const products = matches
                 .map(x => `${x.productCode} - ${x.productName}`)
                 .join("\n");
-
+            const foundTotal = matches.reduce(
+                (sum, x) => sum + Number(x.movement.entryTotalCost || 0),
+                0
+            );
             
             // ============================================================
             // VALIDACIÓN: TOTAL DE MERCADERÍA EN TRÁNSITO EN CERO
             // ===========================================================
 
-            const transitTotal = Number(transit.total ?? 0);
+            const transitTotal = Number(transit.expectedCost ?? 0);
 
             if (transitTotal === 0) {
 
                 console.log("❌ RULE_004 - TOTAL DE TRÁNSITO EN CERO", {
                     document: transit.document,
                     normalizedDocument,
-                    total: transit.total,
+                    total: transit.expectedCost,
                     supplier: transit.supplier,
                     supplierRuc: transit.supplierRuc,
                     foundInKardex: matches.length > 0
@@ -214,7 +217,8 @@ export class Rule004 {
                         supplier: transit.supplier,
                         document: transit.document,
                         normalizedDocument,
-                        total: transitTotal
+                        expectedCost: transitTotal,
+                        foundCost: foundTotal
                     }
                 });
             }
@@ -236,6 +240,12 @@ export class Rule004 {
                     `❌ RULE_004: ${transit.document} NO ENCONTRADO - GENERA FINDING`
                 );
             }
+            const expectedCost = Number(transit.expectedCost ?? 0);
+
+            const foundCost = matches.reduce(
+                (sum, x) => sum + Number(x.movement.entryTotalCost || 0),
+                0
+            );
 
             findings.push({
                 ruleId: "RULE_004",
@@ -257,7 +267,9 @@ export class Rule004 {
                     supplierRuc: transit.supplierRuc,
                     supplier: transit.supplier,
                     document: transit.document,
-                    normalizedDocument
+                    normalizedDocument,
+                    expectedCost,
+                    foundCost
                 }
             });
         }
