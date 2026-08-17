@@ -15,7 +15,7 @@ export class Rule001 {
         console.log("========================================");
         console.log("RULE001 START");
         console.log("KARDEX PRODUCTS:", data.kardex.length);
-        console.log("FINAL INVENTORY:", data.finalInventory.length);
+        console.log("FINAL INVENTORY:", data.initialInventory.length);
         console.log("========================================");
 
         const kardex = new Map<string, KardexProduct>();
@@ -45,10 +45,11 @@ export class Rule001 {
 
         index = 0;
 
-        for (const inventory of data.finalInventory) {
+        for (const inventory of data.initialInventory) {
 
-            const code = CodeHelper.normalize(inventory.code);
-            const product = kardex.get(code);
+            const code = CodeHelper.normalize(inventory.code);            
+            const product = kardex.get(code);            
+            
             if (!product) {
 
                 findings.push({
@@ -59,7 +60,9 @@ export class Rule001 {
                     description: "El producto no existe en el Kardex.",
                     recommendation: "Verifique que el producto exista en ambos archivos.",
                     riskLevel: "CRITICO",
-                    metadata: {}
+                    metadata: {
+                        month: 0,
+                    }
                 });
 
                 continue;
@@ -75,14 +78,24 @@ export class Rule001 {
                     description: "El producto no posee movimientos en el Kardex.",
                     recommendation: "Revise el Kardex del producto.",
                     riskLevel: "ALTO",
-                    metadata: {}
+                    metadata: {
+                        month: 0,
+                    }
                 });
 
                 continue;
             }
 
-            const balance = product.movements[product.movements.length - 1];
+            const validMovements = product.movements.filter(
+                movement =>
+                    Number(movement.entryQuantity || 0) > 0 ||
+                    Number(movement.exitQuantity || 0) > 0
+            );
+            if (validMovements.length === 0) {
+                continue;
+            }
 
+            const balance = validMovements[validMovements.length - 1];
             const differences: string[] = [];
 
             if (!this.equals(inventory.stock, balance.balanceQuantity))
@@ -106,6 +119,7 @@ export class Rule001 {
                 recommendation: "Verifique los movimientos del Kardex y el inventario final.",
                 riskLevel: "CRITICO",
                 metadata: {
+                    month: balance.month,
                     inventoryCode: inventory.code,
                     normalizedCode: code,
                     inventoryStock: inventory.stock,

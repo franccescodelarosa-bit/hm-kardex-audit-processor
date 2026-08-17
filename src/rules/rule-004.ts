@@ -3,6 +3,7 @@ import { Finding } from "../models/finding";
 import { DocumentHelper } from "../helpers/document.helper";
 import { KardexMovement } from "../models/kardex-movement";
 import { DateHelper } from "../helpers/date.helper";
+import { CodeHelper } from "../helpers/code.helper";
 
 export class Rule004 {
 
@@ -12,27 +13,15 @@ export class Rule004 {
     ];
 
     static execute(data: AuditData): Finding[] {
+
         const findings: Finding[] = [];
 
-        const debugDocuments = new Set(
-            this.DEBUG_DOCUMENTS.map(document =>
-                DocumentHelper.normalize(document)
-            )
-        );
+        /*
+         * ============================================================
+         * 1. ÍNDICE DE DOCUMENTOS DEL KARDEX
+         * ============================================================
+         */
 
-        console.log("========================================");
-        console.log("🔍 RULE_004 DEBUG DOCUMENTOS");
-
-        for (const document of this.DEBUG_DOCUMENTS) {
-            console.log({
-                original: document,
-                normalized: DocumentHelper.normalize(document)
-            });
-        }
-
-        console.log("========================================");
-
-        // Índice de documentos registrados en el Kardex
         const documents = new Map<string, {
             productCode: string;
             productName: string;
@@ -44,7 +33,7 @@ export class Rule004 {
             for (const movement of product.movements) {
 
                 // Solo ingresos
-                if (movement.entryQuantity <= 0) {
+                if (Number(movement.entryQuantity || 0) <= 0) {
                     continue;
                 }
 
@@ -53,27 +42,6 @@ export class Rule004 {
 
                 if (!normalizedDocument) {
                     continue;
-                }
-
-                // DEBUG: encontramos uno de los documentos objetivo en Kardex
-                if (debugDocuments.has(normalizedDocument)) {
-
-                    console.log("🔥 RULE_004 - DOCUMENTO ENCONTRADO EN KARDEX");
-
-                    console.log({
-                        productCode: product.code,
-                        productName: product.description,
-
-                        originalDocument: movement.document,
-                        normalizedDocument,
-
-                        month: movement.month,
-                        date: movement.date,
-
-                        entryQuantity: movement.entryQuantity,
-                        entryUnitCost: movement.entryUnitCost,
-                        entryTotalCost: movement.entryTotalCost
-                    });
                 }
 
                 if (!documents.has(normalizedDocument)) {
@@ -88,188 +56,251 @@ export class Rule004 {
             }
         }
 
-        // ============================================================
-        // DEMO DIRECTA: ¿EXISTEN LOS DOS DOCUMENTOS EN EL ÍNDICE?
-        // ============================================================
-
-        console.log("========================================");
-        console.log("🧪 RULE_004 - RESULTADO DIRECTO DEL ÍNDICE");
-
-        for (const originalDocument of this.DEBUG_DOCUMENTS) {
-
-            const normalizedDocument =
-                DocumentHelper.normalize(originalDocument);
-
-            const matches =
-                documents.get(normalizedDocument) ?? [];
-
-            console.log({
-                originalDocument,
-                normalizedDocument,
-                found: matches.length > 0,
-                matches: matches.length,
-                products: matches.map(x => ({
-                    productCode: x.productCode,
-                    productName: x.productName,
-                    kardexDocument: x.movement.document,
-                    entryQuantity: x.movement.entryQuantity,
-                    entryTotalCost: x.movement.entryTotalCost
-                }))
-            });
-        }
-
-        console.log("========================================");
-
-        // ============================================================
-        // CRUCE MERCADERÍA EN TRÁNSITO VS KARDEX
-        // ============================================================
+        /*
+         * ============================================================
+         * 2. PROCESAR MERCADERÍA EN TRÁNSITO
+         * ============================================================
+         */
 
         for (const transit of data.transit) {
 
             const normalizedDocument =
                 DocumentHelper.normalize(transit.document);
 
-            const matches =
+            const documentMatches =
                 documents.get(normalizedDocument) ?? [];
 
-            const isDebugDocument =
-                debugDocuments.has(normalizedDocument);
+            /*
+             * ========================================================
+             * 3. SI EL DOCUMENTO EXISTE EN KARDEX
+             * ========================================================
+             *
+             * RULE_004 solo debe reportar documentos NO encontrados.
+             */
 
-            if (isDebugDocument) {
-
-                console.log("🚨 RULE_004 - DOCUMENTO EN TRANSIT");
-
-                console.log({
-                    transitDocument: transit.document,
-                    normalizedDocument,
-
-                    foundInKardex: matches.length > 0,
-                    matches: matches.length,
-
-                    issueDate: transit.issueDate,
-                    warehouseDate: transit.warehouseDate,
-                    supplierRuc: transit.supplierRuc,
-                    supplier: transit.supplier,
-
-                    // IMPORTANTE PARA INVESTIGAR RULE_012
-                    transitTotal: transit.expectedCost,
-
-                    matchedProducts: matches.map(x => ({
-                        productCode: x.productCode,
-                        productName: x.productName,
-                        kardexDocument: x.movement.document,
-                        entryQuantity: x.movement.entryQuantity,
-                        entryUnitCost: x.movement.entryUnitCost,
-                        entryTotalCost: x.movement.entryTotalCost
-                    }))
-                });
-            }
-
-            const month = matches.length > 0
-                ? matches[0].movement.month
-                : null;
-
-            const duplicatedItems = matches.length;
-
-            const products = matches
-                .map(x => `${x.productCode} - ${x.productName}`)
-                .join("\n");
-            const foundTotal = matches.reduce(
-                (sum, x) => sum + Number(x.movement.entryTotalCost || 0),
-                0
-            );
-            
-            // ============================================================
-            // VALIDACIÓN: TOTAL DE MERCADERÍA EN TRÁNSITO EN CERO
-            // ===========================================================
-
-            const transitTotal = Number(transit.expectedCost ?? 0);
-
-            if (transitTotal === 0) {
-
-                console.log("❌ RULE_004 - TOTAL DE TRÁNSITO EN CERO", {
-                    document: transit.document,
-                    normalizedDocument,
-                    total: transit.expectedCost,
-                    supplier: transit.supplier,
-                    supplierRuc: transit.supplierRuc,
-                    foundInKardex: matches.length > 0
-                });
-
-                findings.push({
-                    ruleId: "RULE_004",
-                    productCode: "",
-                    productName: "",
-                    errorType: "TRANSIT_TOTAL_ZERO",
-                    description:
-                        `El comprobante ${transit.document} presenta un valor total de 0 en el reporte de mercadería en tránsito.`,
-                    recommendation:
-                        "Verifique el valor total del comprobante en el reporte de mercadería en tránsito.",
-                    riskLevel: "MEDIO",
-                    metadata: {
-                        transitItem: DateHelper.toDateString(transit.issueDate),
-                        month,
-                        duplicatedItems,
-                        products,
-                        issueDate: transit.issueDate,
-                        warehouseDate: transit.warehouseDate,
-                        supplierRuc: transit.supplierRuc,
-                        supplier: transit.supplier,
-                        document: transit.document,
-                        normalizedDocument,
-                        expectedCost: transitTotal,
-                        foundCost: foundTotal
-                    }
-                });
-            }
-
-            // Encontrado
-            if (matches.length > 0) {
-
-                if (isDebugDocument) {
-                    console.log(
-                        `✅ RULE_004: ${transit.document} ENCONTRADO - NO GENERA FINDING`
-                    );
-                }
-
+            if (documentMatches.length > 0) {
                 continue;
             }
 
-            if (isDebugDocument) {
-                console.log(
-                    `❌ RULE_004: ${transit.document} NO ENCONTRADO - GENERA FINDING`
-                );
-            }
-            const expectedCost = Number(transit.expectedCost ?? 0);
+            /*
+             * ========================================================
+             * 4. OBTENER MES DEL PERÍODO
+             * ========================================================
+             *
+             * El período de Mercadería en Tránsito corresponde
+             * a la fecha de ingreso al almacén.
+             *
+             * Ejemplo:
+             *
+             * Emisión:       06/12/2023
+             * Ingreso almacén: 04/01/2024
+             *
+             * Período = Enero
+             */
 
-            const foundCost = matches.reduce(
-                (sum, x) => sum + Number(x.movement.entryTotalCost || 0),
-                0
-            );
+            const periodDate =
+                transit.warehouseDate ?? transit.issueDate;
+
+            const periodMonth =
+                new Date(periodDate).getMonth() + 1;
+
+            /*
+             * ========================================================
+             * 5. OBTENER CÓDIGOS DE ITEMS ADQUIRIDOS
+             * ========================================================
+             *
+             * Ejemplo:
+             *
+             * ´00002525 - 00007894 - ´00362541
+             *
+             * Separamos por -, , ; o salto de línea.
+             */
+
+            const acquiredCodes =
+                String(transit.acquiredCodes ?? "")
+                    .split(/[-,;\n]/)
+                    .map(code => CodeHelper.normalize(code))
+                    .filter(Boolean);
+
+            /*
+             * ========================================================
+             * 6. BUSCAR LOS PRODUCTOS EN EL KARDEX
+             * ========================================================
+             *
+             * IMPORTANTE:
+             *
+             * NO usamos el documento.
+             *
+             * Buscamos por los códigos adquiridos y por el mes
+             * correspondiente al período.
+             */
+
+            const evaluatedProducts: {
+                code: string;
+                description: string;
+                cost: number;
+                month: number | null;
+                document: string;
+            }[] = [];
+
+            let foundCost = 0;
+
+            for (const product of data.kardex) {
+
+                const normalizedProductCode =
+                    CodeHelper.normalize(product.code);
+
+                if (!acquiredCodes.includes(normalizedProductCode)) {
+                    continue;
+                }
+
+                /*
+                 * Buscar movimientos del producto correspondientes
+                 * al período.
+                 */
+
+                for (const movement of product.movements) {
+
+                    if (
+                        movement.month !== periodMonth
+                    ) {
+                        continue;
+                    }
+
+                    /*
+                     * Solo ingresos.
+                     */
+                    if (
+                        Number(movement.entryQuantity || 0) <= 0
+                    ) {
+                        continue;
+                    }
+
+                    const cost =
+                        Number(
+                            movement.entryTotalCost || 0
+                        );
+
+                    foundCost += cost;
+
+                    evaluatedProducts.push({
+                        code: product.code,
+                        description: product.description,
+                        cost,
+                        month: movement.month,
+                        document: movement.document
+                    });
+                }
+            }
+
+            /*
+             * ========================================================
+             * 7. VALOR ESPERADO
+             * ========================================================
+             */
+
+            const expectedCost =
+                Number(transit.expectedCost ?? 0);
+
+            /*
+             * ========================================================
+             * 8. DIFERENCIA
+             * ========================================================
+             */
+
+            const difference =
+                Number(
+                    (
+                        expectedCost -
+                        foundCost
+                    ).toFixed(2)
+                );
+
+            const differencePercent =
+                expectedCost === 0
+                    ? 0
+                    : Math.abs(
+                        difference /
+                        expectedCost
+                    ) * 100;
+
+            /*
+             * ========================================================
+             * 9. GENERAR FINDING
+             * ========================================================
+             *
+             * El finding existe porque el DOCUMENTO NO ESTÁ
+             * REGISTRADO EN KARDEX.
+             *
+             * Los valores esperado/encontrado son información
+             * adicional para la auditoría.
+             */
 
             findings.push({
+
                 ruleId: "RULE_004",
+
                 productCode: "",
+
                 productName: "",
-                errorType: "TRANSIT_NOT_FOUND",
+
+                errorType:
+                    "TRANSIT_NOT_FOUND",
+
                 description:
                     `El comprobante ${transit.document} no fue encontrado en ningún ingreso del Kardex.`,
+
                 recommendation:
-                    "Verifique que la mercadería en tránsito haya sido registrada en el Kardex.",
+                    "Verifique que la mercadería en tránsito haya sido registrada en el Kardex y que los productos adquiridos correspondan al documento.",
+
                 riskLevel: "MEDIO",
+
                 metadata: {
-                    transitItem: DateHelper.toDateString(transit.issueDate),
-                    month,
-                    duplicatedItems,
-                    products,
-                    issueDate: transit.issueDate,
-                    warehouseDate: transit.warehouseDate,
-                    supplierRuc: transit.supplierRuc,
-                    supplier: transit.supplier,
-                    document: transit.document,
+
+                    transitItem:
+                        DateHelper.toDateString(
+                            transit.issueDate
+                        ),
+
+                    month:
+                        periodMonth,
+
+                    issueDate:
+                        transit.issueDate,
+
+                    warehouseDate:
+                        transit.warehouseDate,
+
+                    supplierRuc:
+                        transit.supplierRuc,
+
+                    supplier:
+                        transit.supplier,
+
+                    document:
+                        transit.document,
+
                     normalizedDocument,
+
+                    acquiredCodes,
+
                     expectedCost,
-                    foundCost
+
+                    foundCost,
+
+                    difference,
+
+                    differencePercent,
+
+                    evaluatedProducts,
+
+                    products:
+                        evaluatedProducts
+                            .map(
+                                product =>
+                                    `${product.code} - ${product.description}`
+                            )
+                            .join("\n")
                 }
             });
         }
