@@ -75,7 +75,7 @@ export class AuditResultRepository {
 
     }
 
-    private static getMonth(finding: Finding): number | null {
+    static getMonth(finding: Finding): number | null {
 
         const metadata: any = finding.metadata;
 
@@ -83,6 +83,7 @@ export class AuditResultRepository {
             metadata?.month ??
             metadata?.currentMonth ??
             metadata?.fromMonth ??
+            metadata?.fromIndex ??
             null
         );
 

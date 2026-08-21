@@ -8,4 +8,14 @@ export class DateHelper {
         }
         return String(date).split("T")[0];
     }
+
+    static excelSerialToDate(serial: number): Date {
+        const utcDays = Math.floor(serial - 25569);
+        const utcValue = utcDays * 86400;
+        return new Date(utcValue * 1000);
+    }
+
+    static monthOf(date: Date): number {
+        return date.getUTCMonth() + 1;
+    }
 }

@@ -5,24 +5,10 @@ import { KardexMovement } from "../models/kardex-movement";
 import { DateHelper } from "../helpers/date.helper";
 const MAX_DIFFERENCE_PERCENT = 5;
 export class Rule012 {
-    
-    // Documento que queremos rastrear
-    private static readonly DEBUG_DOCUMENT = "Fac-F001-1588";
 
     static execute(data: AuditData): Finding[] {
 
         const findings: Finding[] = [];
-
-        const debugNormalizedDocument =
-            DocumentHelper.normalize(this.DEBUG_DOCUMENT);
-
-        console.log("========================================");
-        console.log("🔍 RULE_012 DEBUG INICIO");
-        console.log("Documento buscado:", this.DEBUG_DOCUMENT);
-        console.log("Documento normalizado:", debugNormalizedDocument);
-        console.log("Transit items:", data.transit.length);
-        console.log("Kardex products:", data.kardex.length);
-        console.log("========================================");
 
         // ============================================================
         // 1. ÍNDICE DE MOVIMIENTOS DE KARDEX POR DOCUMENTO
@@ -92,7 +78,14 @@ export class Rule012 {
                 cost: Number(product.movement.entryTotalCost || 0)
             }));
 
-            const expectedCost = Number(transit.expectedCost || 0);
+            const expectedCost = Number(
+                (
+                    Number(transit.subtotal || 0) +
+                    Number(transit.igv || 0) +
+                    Number(transit.freight || 0) +
+                    Number(transit.otherCosts || 0)
+                ).toFixed(2)
+            );
 
             const difference = Number(
                 (expectedCost - kardexTotal).toFixed(2)
@@ -106,10 +99,14 @@ export class Rule012 {
                     
             const isIncident = differencePercent > MAX_DIFFERENCE_PERCENT;
 
+            const month = DateHelper.monthOf(
+                new Date(transit.warehouseDate ?? transit.issueDate)
+            );
+
             findings.push({
                 ruleId: "RULE_012",
 
-                productCode: "",
+                productCode: transit.document,
                 productName: "",
 
                 errorType: isIncident
@@ -130,6 +127,8 @@ export class Rule012 {
                     : "BAJO",
 
                  metadata: {
+                    month,
+
                     issueDate: transit.issueDate,
                     warehouseDate: transit.warehouseDate,
 
@@ -137,6 +136,7 @@ export class Rule012 {
                     supplier: transit.supplier,
 
                     document: transit.document,
+                    normalizedDocument,
 
                     expectedCost,
                     kardexCost: kardexTotal,

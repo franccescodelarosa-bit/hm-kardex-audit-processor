@@ -13,12 +13,66 @@ export class Rule008 {
         for (const item of data.finalInventory) {
             masterCodes.add(CodeHelper.normalize(item.code));
         }
+
+        const kardexCodes = new Set<string>();
+        for (const product of data.kardex) {
+            kardexCodes.add(CodeHelper.normalize(product.code));
+        }
+
         this.validateKardex(
             data.kardex,
             findings,
             masterCodes
         );
+
+        this.validateInventory(
+            data.initialInventory,
+            "INVENTARIO_INICIAL",
+            findings,
+            kardexCodes
+        );
+        this.validateInventory(
+            data.finalInventory,
+            "INVENTARIO_FINAL",
+            findings,
+            kardexCodes
+        );
+
         return findings;
+    }
+
+    private static validateInventory(
+        inventory: { code: string; product: string }[],
+        source: string,
+        findings: Finding[],
+        kardexCodes: Set<string>
+    ) {
+        const processed = new Set<string>();
+        for (const item of inventory) {
+            const code = CodeHelper.normalize(item.code);
+            if (processed.has(code)) {
+                continue;
+            }
+            processed.add(code);
+            if (kardexCodes.has(code)) {
+                continue;
+            }
+            findings.push({
+                ruleId: "RULE_008",
+                productCode: item.code,
+                productName: item.product,
+                errorType: "INVENTORY_CODE_NOT_IN_KARDEX",
+                description:
+                    `El producto existe en el ${source === "INVENTARIO_INICIAL" ? "Inventario Inicial" : "Inventario Final"} ` +
+                    "pero no aparece en el Kardex.",
+                recommendation:
+                    "Verifique el código del producto o confirme que tenga movimientos registrados en el Kardex.",
+                riskLevel: "ALTO",
+                metadata: {
+                    source
+                }
+            });
+        }
     }
 
     private static validateKardex(

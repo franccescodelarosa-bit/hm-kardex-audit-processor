@@ -51,15 +51,14 @@ interface ProductMonthlySummary {
 export class Rule014 {
 
     /*
-     * Tolerancia para cantidad.
+     * Tolerancia para cantidad (unidades, no plata — absorbe redondeo de
+     * sumas de enteros, no es una tolerancia de negocio).
      */
     private static readonly QUANTITY_TOLERANCE = 0.01;
 
-    /*
-     * Tolerancia del costo valorizado:
-     * ±2.5%
-     */
-    private static readonly COST_TOLERANCE_PERCENT = 0.025;
+    private static readonly ENTRY_OPERATION = "02";
+    private static readonly EXIT_OPERATION = "01";
+    private static readonly INITIAL_BALANCE_OPERATION = "16";
 
     private static equals(
         a: number,
@@ -68,6 +67,11 @@ export class Rule014 {
 
         return Math.abs(a - b)
             < this.QUANTITY_TOLERANCE;
+    }
+
+    /** Compara dos montos en centavos exactos — "sin tolerancia" real, no una banda de negocio. */
+    private static centsEqual(a: number, b: number): boolean {
+        return Math.round(a * 100) === Math.round(b * 100);
     }
 
     private static round(
@@ -162,9 +166,6 @@ export class Rule014 {
                     continue;
                 }
 
-                const firstMovement =
-                    movements[0];
-
                 const lastMovement =
                     movements[
                         movements.length - 1
@@ -172,70 +173,68 @@ export class Rule014 {
 
                 /*
                  * ----------------------------------------------------
-                 * SALDO INICIAL DEL PRODUCTO
+                 * SALDO INICIAL DEL PRODUCTO (ANEXO 03, punto 1)
                  * ----------------------------------------------------
-                 *
-                 * Inicial
-                 * + Entrada
-                 * - Salida
-                 * = Saldo después del primer movimiento
-                 *
-                 * Entonces:
-                 *
-                 * Inicial
-                 * = Saldo
-                 * - Entrada
-                 * + Salida
+                 * "Sumar todos los saldos de op 16 de cada producto" —
+                 * buscamos la fila de Saldo Inicial explícitamente, no
+                 * asumimos que es la primera del array.
                  */
+                const saldoInicialMovement =
+                    movements.find(
+                        m => String(m.operation).trim() === this.INITIAL_BALANCE_OPERATION
+                    );
+
                 const initialQuantity =
-                    firstMovement.balanceQuantity
-                    - firstMovement.entryQuantity
-                    + firstMovement.exitQuantity;
+                    saldoInicialMovement?.balanceQuantity ?? 0;
 
                 const initialTotalCost =
-                    firstMovement.balanceTotalCost
-                    - firstMovement.entryTotalCost
-                    + firstMovement.exitTotalCost;
+                    saldoInicialMovement?.balanceTotalCost ?? 0;
 
                 /*
                  * ----------------------------------------------------
-                 * ENTRADAS DEL PRODUCTO
+                 * ENTRADAS DEL PRODUCTO (ANEXO 03, punto 2)
                  * ----------------------------------------------------
+                 * "Sumar todos los saldos de entrada de operación 2" —
+                 * solo compras, no ajustes ni otras operaciones.
                  */
+                const entradasCompra =
+                    movements.filter(
+                        m => String(m.operation).trim() === this.ENTRY_OPERATION
+                    );
+
                 const totalEntryQuantity =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum
-                            + movement.entryQuantity,
+                    entradasCompra.reduce(
+                        (sum, movement) => sum + movement.entryQuantity,
                         0
                     );
 
                 const totalEntryCost =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum
-                            + movement.entryTotalCost,
+                    entradasCompra.reduce(
+                        (sum, movement) => sum + movement.entryTotalCost,
                         0
                     );
 
                 /*
                  * ----------------------------------------------------
-                 * SALIDAS DEL PRODUCTO
+                 * SALIDAS DEL PRODUCTO (ANEXO 03, punto 3)
                  * ----------------------------------------------------
+                 * "Sumar todos los saldos de salida de operación 1" —
+                 * solo ventas, no ajustes ni otras operaciones.
                  */
+                const salidasVenta =
+                    movements.filter(
+                        m => String(m.operation).trim() === this.EXIT_OPERATION
+                    );
+
                 const totalExitQuantity =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum
-                            + movement.exitQuantity,
+                    salidasVenta.reduce(
+                        (sum, movement) => sum + movement.exitQuantity,
                         0
                     );
 
                 const totalExitCost =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum
-                            + movement.exitTotalCost,
+                    salidasVenta.reduce(
+                        (sum, movement) => sum + movement.exitTotalCost,
                         0
                     );
 
@@ -384,22 +383,15 @@ export class Rule014 {
 
             /*
              * ========================================================
-             * RANGO DEL COSTO ±2.5%
+             * "SIN TOLERANCIA" — se compara a centavos exactos, no hay
+             * banda de negocio (ni 2.5%, ni ningun colchon). Se dejan
+             * lowerLimit/upperLimit iguales al valor esperado, redondeado
+             * a centavos, solo para que el reporte de Excel del backend
+             * siga mostrando algo coherente.
              * ========================================================
              */
-            const lowerCostLimit =
-                expectedFinalTotalCost
-                * (
-                    1
-                    - this.COST_TOLERANCE_PERCENT
-                );
-
-            const upperCostLimit =
-                expectedFinalTotalCost
-                * (
-                    1
-                    + this.COST_TOLERANCE_PERCENT
-                );
+            const lowerCostLimit = this.round(expectedFinalTotalCost);
+            const upperCostLimit = this.round(expectedFinalTotalCost);
 
             /*
              * ========================================================
@@ -426,11 +418,10 @@ export class Rule014 {
                 );
 
             const totalCostIsValid =
-                summary.finalTotalCost
-                    >= lowerCostLimit
-                &&
-                summary.finalTotalCost
-                    <= upperCostLimit;
+                this.centsEqual(
+                    summary.finalTotalCost,
+                    expectedFinalTotalCost
+                );
 
             /*
              * ========================================================
@@ -481,11 +472,10 @@ export class Rule014 {
 
                 description:
                     `El consolidado general del Kardex ` +
-                    `para el mes ${month} no cumple la validación ` +
-                    `mensual. La cantidad debe cumplir la fórmula ` +
-                    `Saldo Inicial + Entradas - Salidas = Saldo Final. ` +
-                    `El costo valorizado final debe encontrarse ` +
-                    `entre el 97.5% y el 102.5% del costo calculado. ` +
+                    `para el mes ${month} no cumple la ecuación de ` +
+                    `conciliación global (Inventario Valorizado de Inicio ` +
+                    `+ Costo Total de Entrada - Costo Total de Salida = ` +
+                    `Inventario Valorizado de Cierre). Sin tolerancia. ` +
                     `Diferencias: ${differences.join(", ")}.`,
 
                 recommendation:
@@ -569,7 +559,7 @@ export class Rule014 {
                      */
                     costTolerance: {
 
-                        percentage: 2.5,
+                        percentage: 0,
 
                         lowerLimit:
                             this.round(

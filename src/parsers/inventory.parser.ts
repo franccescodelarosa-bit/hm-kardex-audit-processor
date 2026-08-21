@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { InventoryItem } from "../models/inventory-item";
+import { ExcelCellHelper } from "../helpers/excel-cell.helper";
 export class InventoryParser {
     static async parse(filePath: string): Promise<InventoryItem[]> {
         console.log(`Parsing ${filePath}`);
@@ -13,14 +14,14 @@ export class InventoryParser {
                 continue;
             }
             items.push({
-                item: Number(row.getCell(1).value),
+                item: ExcelCellHelper.toNumber(row.getCell(1).value),
                 family: String(row.getCell(2).value ?? ""),
                 code: String(row.getCell(3).value ?? ""),
                 product: String(row.getCell(4).value ?? ""),
                 unit: String(row.getCell(5).value ?? ""),
-                stock: Number(row.getCell(6).value ?? 0),
-                unitCost: Number(row.getCell(7).value ?? 0),
-                totalCost: Number(row.getCell(8).value ?? 0)
+                stock: ExcelCellHelper.toNumber(row.getCell(6).value),
+                unitCost: ExcelCellHelper.toNumber(row.getCell(7).value),
+                totalCost: ExcelCellHelper.toNumber(row.getCell(8).value)
             });
         }
         console.log(`Inventory items: ${items.length}`);

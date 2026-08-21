@@ -7,7 +7,10 @@ export class Rule001 {
     private static equals(a: number, b: number): boolean {
         return Math.abs(a - b) < 0.01;
     }
-    private static debugCount = 0;
+
+    /** TipoOP 16 = Saldo Inicial (misma convención que Rule002/Rule003). */
+    private static readonly INITIAL_BALANCE_OPERATION = "16";
+
     static execute(data: AuditData): Finding[] {
 
         const findings: Finding[] = [];
@@ -15,35 +18,22 @@ export class Rule001 {
         console.log("========================================");
         console.log("RULE001 START");
         console.log("KARDEX PRODUCTS:", data.kardex.length);
-        console.log("FINAL INVENTORY:", data.initialInventory.length);
+        console.log("INITIAL INVENTORY:", data.initialInventory.length);
         console.log("========================================");
 
         const kardex = new Map<string, KardexProduct>();
-
-        let index = 0;
 
         for (const product of data.kardex) {
 
             const normalized = CodeHelper.normalize(product.code);
 
-            if (index < 10) {
-                console.log(
-                    `[KARDEX ${index}] original='${product.code}' normalized='${normalized}' movements=${product.movements.length}`
-                );
+            if (!kardex.has(normalized)) {
+                kardex.set(normalized, product);
             }
-
-            kardex.set(normalized, product);
-
-            index++;
         }
 
+        console.log("MAP SIZE (productos unicos):", kardex.size);
         console.log("========================================");
-        console.log("MAP SIZE:", kardex.size);
-        console.log("FIRST MAP KEYS:");
-        console.log([...kardex.keys()].slice(0, 20));
-        console.log("========================================");
-
-        index = 0;
 
         for (const inventory of data.initialInventory) {
 
@@ -86,16 +76,16 @@ export class Rule001 {
                 continue;
             }
 
-            const validMovements = product.movements.filter(
+            const balance = product.movements.find(
                 movement =>
-                    Number(movement.entryQuantity || 0) > 0 ||
-                    Number(movement.exitQuantity || 0) > 0
+                    String(movement.operation).trim() ===
+                    this.INITIAL_BALANCE_OPERATION
             );
-            if (validMovements.length === 0) {
+
+            if (!balance) {
                 continue;
             }
 
-            const balance = validMovements[validMovements.length - 1];
             const differences: string[] = [];
 
             if (!this.equals(inventory.stock, balance.balanceQuantity))
@@ -115,8 +105,8 @@ export class Rule001 {
                 productCode: inventory.code,
                 productName: inventory.product,
                 errorType: "INVENTORY_MISMATCH",
-                description: `El inventario final no coincide con el saldo del Kardex (${differences.join(", ")}).`,
-                recommendation: "Verifique los movimientos del Kardex y el inventario final.",
+                description: `El inventario inicial no coincide con el Saldo Inicial del Kardex (${differences.join(", ")}).`,
+                recommendation: "Verifique el inventario inicial y el Saldo Inicial (TipoOp 16) del Kardex.",
                 riskLevel: "CRITICO",
                 metadata: {
                     month: balance.month,

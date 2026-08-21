@@ -91,6 +91,7 @@ export const handler = async (event: any) => {
     );
     // Reconstruir el contexto para ejecutar las reglas
     const auditData = {
+        year: event.audit?.year as number | undefined,
         initialInventory: await AuditContextRepository.load(context.initialInventoryKey!),
         finalInventory: await AuditContextRepository.load(context.finalInventoryKey!),
         transit: await AuditContextRepository.load(context.transitKey!),

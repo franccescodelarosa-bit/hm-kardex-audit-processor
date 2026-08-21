@@ -2,167 +2,125 @@ import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
 import { KardexProduct } from "../models/kardex-product";
 import { CodeHelper } from "../helpers/code.helper";
+
 export class Rule002 {
     private static equals(a: number, b: number): boolean {
         return Math.abs(a - b) < 0.01;
     }
+
     private static readonly INITIAL_BALANCE_OPERATION = "16";
+
     static execute(data: AuditData): Finding[] {
+
         const findings: Finding[] = [];
-        const productsByCodeAndMonth = new Map<string, KardexProduct>();
+
+        /*
+         * ============================================================
+         * 1. AGRUPAR POR CÓDIGO -> MES -> PRODUCTO
+         * ============================================================
+         *
+         * Usamos un Map<mes, KardexProduct> por código (en vez de un
+         * array plano) para poder detectar HUECOS reales entre meses.
+         * Si a un producto le falta un mes en el medio (ej: tiene datos
+         * en enero y marzo pero no en febrero), NO queremos comparar
+         * enero contra marzo como si fueran consecutivos.
+         */
+        const historyByCode = new Map<string, Map<number, KardexProduct>>();
+
         for (const product of data.kardex) {
+
             const code = CodeHelper.normalize(product.code);
+
             const month = product.movements
                 .find(movement => movement.month !== null)
                 ?.month;
+
             if (!month) {
                 continue;
             }
-            const key = `${code}|${month}`;
-            productsByCodeAndMonth.set(key, product);
-        }
-        /*
-         * ============================================================
-         * 2. AGRUPAR NUEVAMENTE POR CÓDIGO
-         * ============================================================
-         */
-        const history =
-            new Map<string, KardexProduct[]>();
 
-        for (const [key, product] of productsByCodeAndMonth) {
-
-            const code = key.split("|")[0];
-
-            if (!history.has(code)) {
-                history.set(code, []);
+            if (!historyByCode.has(code)) {
+                historyByCode.set(code, new Map());
             }
 
-            history.get(code)!.push(product);
+            historyByCode.get(code)!.set(month, product);
         }
 
         /*
          * ============================================================
-         * 3. PROCESAR HISTORIAL DE CADA PRODUCTO
+         * 2. PROCESAR EL HISTORIAL DE CADA PRODUCTO, MES A MES
          * ============================================================
+         *
+         * Recorremos únicamente el rango en que el producto tuvo
+         * actividad (desde su primer mes con datos hasta su último).
+         * Un producto que recién aparece más adelante en el ejercicio
+         * NO genera hallazgo por los meses anteriores (no es un error).
          */
+        for (const [, monthsMap] of historyByCode) {
 
-        for (const [code, months] of history) {
-
-            /*
-             * Ordenamos explícitamente por mes.
-             *
-             * Esto evita depender del orden en que las hojas
-             * fueron leídas por el parser.
-             */
-            months.sort((a, b) => {
-
-                const monthA =
-                    a.movements.find(
-                        movement => movement.month !== null
-                    )?.month ?? 0;
-
-                const monthB =
-                    b.movements.find(
-                        movement => movement.month !== null
-                    )?.month ?? 0;
-
-                return monthA - monthB;
-            });
+            const months = [...monthsMap.keys()].sort((a, b) => a - b);
 
             if (months.length < 2) {
                 continue;
             }
 
-            /*
-             * ========================================================
-             * 4. COMPARAR MES CONTRA MES SIGUIENTE
-             * ========================================================
-             */
+            const firstMonth = months[0];
+            const lastMonth = months[months.length - 1];
 
-            for (let i = 0; i < months.length - 1; i++) {
+            for (let month = firstMonth; month < lastMonth; month++) {
 
-                const current = months[i];
-                const next = months[i + 1];
+                const current = monthsMap.get(month);
 
-                if (CodeHelper.normalize(current.code) === "006749") {
+                if (!current) {
+                    continue;
+                }
 
-                    console.log("==============================================");
-                    console.log("🔥 RULE_002 DEBUG 006749");
-                    console.log("==============================================");
+                const next = monthsMap.get(month + 1);
 
-                    console.log("CURRENT PRODUCT:", {
-                        code: current.code,
-                        description: current.description,
-                        movements: current.movements.length
+                /*
+                 * ====================================================
+                 * EL PRODUCTO NO EXISTE EN EL KARDEX SIGUIENTE
+                 * ====================================================
+                 *
+                 * El producto tuvo movimientos este mes, pero no hay
+                 * ningún bloque de Kardex para el mes siguiente, dentro
+                 * del rango en que el producto estuvo activo.
+                 */
+                if (!next) {
+
+                    const currentLast =
+                        current.movements[current.movements.length - 1];
+
+                    findings.push({
+                        ruleId: "RULE_002",
+                        productCode: current.code,
+                        productName: current.description,
+                        errorType: "PRODUCT_NOT_FOUND_NEXT_MONTH",
+                        description:
+                            `El producto no existe en el Kardex del mes ${month + 1}, ` +
+                            `pero sí tuvo movimientos en el mes ${month}.`,
+                        recommendation:
+                            "Verifique que el producto haya sido cargado en el Kardex de todos los meses del ejercicio.",
+                        riskLevel: "ALTO",
+                        metadata: {
+                            fromMonth: month,
+                            toMonth: month + 1,
+                            finalQuantity: currentLast?.balanceQuantity ?? null,
+                            initialQuantity: null
+                        }
                     });
 
-                    console.log("CURRENT ALL MOVEMENTS:");
-
-                    console.log(
-                        current.movements.map((movement, index) => ({
-                            index,
-                            date: movement.date,
-                            operation: movement.operation,
-
-                            entryQuantity: movement.entryQuantity,
-                            entryUnitCost: movement.entryUnitCost,
-                            entryTotalCost: movement.entryTotalCost,
-
-                            exitQuantity: movement.exitQuantity,
-                            exitUnitCost: movement.exitUnitCost,
-                            exitTotalCost: movement.exitTotalCost,
-
-                            balanceQuantity: movement.balanceQuantity,
-                            balanceUnitCost: movement.balanceUnitCost,
-                            balanceTotalCost: movement.balanceTotalCost,
-
-                            month: movement.month
-                        }))
-                    );
-
-                    console.log("==============================================");
-                    console.log("NEXT PRODUCT:", {
-                        code: next.code,
-                        description: next.description,
-                        movements: next.movements.length
-                    });
-
-                    console.log("NEXT INITIAL OPERATION 16:");
-
-                    console.log(
-                        next.movements.find(
-                            movement =>
-                                String(movement.operation).trim() ===
-                                this.INITIAL_BALANCE_OPERATION
-                        )
-                    );
-
-                    console.log("==============================================");
+                    continue;
                 }
 
                 /*
-                 * ----------------------------------------------------
-                 * MES ACTUAL
-                 * ----------------------------------------------------
-                 *
-                 * El último movimiento representa el saldo final
-                 * del mes.
+                 * ====================================================
+                 * CONTINUIDAD DE SALDO ENTRE MESES CONSECUTIVOS
+                 * ====================================================
                  */
                 const currentLast =
-                    current.movements[
-                        current.movements.length - 1
-                    ];
+                    current.movements[current.movements.length - 1];
 
-                /*
-                 * ----------------------------------------------------
-                 * SIGUIENTE MES
-                 * ----------------------------------------------------
-                 *
-                 * NO usamos movements[0].
-                 *
-                 * Buscamos explícitamente TipoOP = 16,
-                 * que corresponde a SALDO INICIAL.
-                 */
                 const nextInitial =
                     next.movements.find(
                         movement =>
@@ -170,71 +128,9 @@ export class Rule002 {
                             this.INITIAL_BALANCE_OPERATION
                     );
 
-                    if (CodeHelper.normalize(current.code) === "006749") {
-
-    console.log("🚨🚨🚨 COMPARACIÓN FINAL 006749 🚨🚨🚨");
-
-    console.log({
-        currentLast: currentLast
-            ? {
-                date: currentLast.date,
-                operation: currentLast.operation,
-                balanceQuantity: currentLast.balanceQuantity,
-                balanceUnitCost: currentLast.balanceUnitCost,
-                balanceTotalCost: currentLast.balanceTotalCost,
-                month: currentLast.month
-            }
-            : null,
-
-        nextInitial: nextInitial
-            ? {
-                date: nextInitial.date,
-                operation: nextInitial.operation,
-                balanceQuantity: nextInitial.balanceQuantity,
-                balanceUnitCost: nextInitial.balanceUnitCost,
-                balanceTotalCost: nextInitial.balanceTotalCost,
-                month: nextInitial.month
-            }
-            : null
-    });
-
-    console.log("🚨🚨🚨 FIN DEBUG 006749 🚨🚨🚨");
-}
-
-
-                /*
-                 * Si alguno de los dos no existe,
-                 * no podemos realizar la comparación.
-                 */
                 if (!currentLast || !nextInitial) {
                     continue;
                 }
-
-                /*
-                 * ====================================================
-                 * 5. OBTENER MESES
-                 * ====================================================
-                 */
-
-                const fromMonth =
-                    currentLast.month ??
-                    current.movements.find(
-                        movement => movement.month !== null
-                    )?.month ??
-                    0;
-
-                const toMonth =
-                    nextInitial.month ??
-                    next.movements.find(
-                        movement => movement.month !== null
-                    )?.month ??
-                    0;
-
-                /*
-                 * ====================================================
-                 * 6. VALIDAR CANTIDAD
-                 * ====================================================
-                 */
 
                 if (
                     this.equals(
@@ -245,43 +141,22 @@ export class Rule002 {
                     continue;
                 }
 
-                /*
-                 * ====================================================
-                 * 7. GENERAR FINDING
-                 * ====================================================
-                 */
-
                 findings.push({
-
                     ruleId: "RULE_002",
-
                     productCode: current.code,
-
                     productName: current.description,
-
                     errorType: "MONTHLY_CONTINUITY_ERROR",
-
                     description:
-                        `No existe continuidad entre el saldo final del mes ${fromMonth} ` +
-                        `y el saldo inicial del mes ${toMonth}: Cantidad.`,
-
+                        `No existe continuidad entre el saldo final del mes ${month} ` +
+                        `y el saldo inicial del mes ${month + 1}: Cantidad.`,
                     recommendation:
                         "Verifique que el saldo final del período coincida con el saldo inicial del siguiente.",
-
                     riskLevel: "ALTO",
-
                     metadata: {
-
-                        fromMonth,
-
-                        toMonth,
-
-                        finalQuantity:
-                            currentLast.balanceQuantity,
-
-                        initialQuantity:
-                            nextInitial.balanceQuantity,
-
+                        fromMonth: month,
+                        toMonth: month + 1,
+                        finalQuantity: currentLast.balanceQuantity,
+                        initialQuantity: nextInitial.balanceQuantity,
                         difference:
                             currentLast.balanceQuantity -
                             nextInitial.balanceQuantity

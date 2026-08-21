@@ -18,15 +18,14 @@ export class Rule003 {
 
         /*
          * ============================================================
-         * 1. AGRUPAR POR CÓDIGO + MES
+         * 1. AGRUPAR POR CÓDIGO -> MES -> PRODUCTO
          * ============================================================
          *
-         * Si existen registros duplicados del mismo producto
-         * dentro del mismo mes, conservamos el último.
+         * Igual que RULE_002: un Map<mes, KardexProduct> por código para
+         * poder detectar HUECOS reales entre meses, en vez de comparar
+         * como "consecutivos" dos meses que en realidad no lo son.
          */
-
-        const productsByCodeAndMonth =
-            new Map<string, KardexProduct>();
+        const historyByCode = new Map<string, Map<number, KardexProduct>>();
 
         for (const product of data.kardex) {
 
@@ -40,97 +39,85 @@ export class Rule003 {
                 continue;
             }
 
-            const key = `${code}|${month}`;
-
-            // Si existe un duplicado del mismo producto/mes,
-            // conservamos el último registro recibido.
-            productsByCodeAndMonth.set(key, product);
-        }
-
-        /*
-         * ============================================================
-         * 2. AGRUPAR POR CÓDIGO
-         * ============================================================
-         */
-
-        const history =
-            new Map<string, KardexProduct[]>();
-
-        for (const [key, product] of productsByCodeAndMonth) {
-
-            const code = key.split("|")[0];
-
-            if (!history.has(code)) {
-                history.set(code, []);
+            if (!historyByCode.has(code)) {
+                historyByCode.set(code, new Map());
             }
 
-            history.get(code)!.push(product);
+            historyByCode.get(code)!.set(month, product);
         }
 
         /*
          * ============================================================
-         * 3. PROCESAR HISTORIAL DE CADA PRODUCTO
+         * 2. PROCESAR EL HISTORIAL DE CADA PRODUCTO, MES A MES
          * ============================================================
          */
+        for (const [, monthsMap] of historyByCode) {
 
-        for (const [code, months] of history) {
-
-            /*
-             * Ordenar explícitamente por mes.
-             */
-            months.sort((a, b) => {
-
-                const monthA =
-                    a.movements.find(
-                        movement => movement.month !== null
-                    )?.month ?? 0;
-
-                const monthB =
-                    b.movements.find(
-                        movement => movement.month !== null
-                    )?.month ?? 0;
-
-                return monthA - monthB;
-            });
+            const months = [...monthsMap.keys()].sort((a, b) => a - b);
 
             if (months.length < 2) {
                 continue;
             }
 
-            /*
-             * ========================================================
-             * 4. COMPARAR MES CONTRA MES SIGUIENTE
-             * ========================================================
-             */
+            const firstMonth = months[0];
+            const lastMonth = months[months.length - 1];
 
-            for (let i = 0; i < months.length - 1; i++) {
+            for (let month = firstMonth; month < lastMonth; month++) {
 
-                const current = months[i];
-                const next = months[i + 1];
+                const current = monthsMap.get(month);
+
+                if (!current) {
+                    continue;
+                }
+
+                const next = monthsMap.get(month + 1);
 
                 /*
-                 * ----------------------------------------------------
-                 * SALDO FINAL DEL MES ACTUAL
-                 * ----------------------------------------------------
-                 *
-                 * El último movimiento del mes representa
-                 * el saldo final.
+                 * ====================================================
+                 * EL PRODUCTO NO EXISTE EN EL KARDEX SIGUIENTE
+                 * ====================================================
+                 */
+                if (!next) {
+
+                    const currentLast =
+                        current.movements[current.movements.length - 1];
+
+                    findings.push({
+                        ruleId: "RULE_003",
+                        productCode: current.code,
+                        productName: current.description,
+                        errorType: "PRODUCT_NOT_FOUND_NEXT_MONTH",
+                        description:
+                            `El producto no existe en el Kardex del mes ${month + 1}, ` +
+                            `pero sí tuvo movimientos en el mes ${month}.`,
+                        recommendation:
+                            "Verifique que el producto haya sido cargado en el Kardex de todos los meses del ejercicio.",
+                        riskLevel: "ALTO",
+                        metadata: {
+                            fromIndex: month,
+                            toIndex: month + 1,
+                            finalBalance: currentLast
+                                ? {
+                                    quantity: currentLast.balanceQuantity,
+                                    unitCost: currentLast.balanceUnitCost,
+                                    totalCost: currentLast.balanceTotalCost
+                                }
+                                : null,
+                            initialBalance: null
+                        }
+                    });
+
+                    continue;
+                }
+
+                /*
+                 * ====================================================
+                 * SALDO FINAL DEL MES ACTUAL / SALDO INICIAL DEL SIGUIENTE
+                 * ====================================================
                  */
                 const currentLast =
-                    current.movements[
-                        current.movements.length - 1
-                    ];
+                    current.movements[current.movements.length - 1];
 
-                /*
-                 * ----------------------------------------------------
-                 * SALDO INICIAL DEL SIGUIENTE MES
-                 * ----------------------------------------------------
-                 *
-                 * TipoOP 16 = Saldo Inicial.
-                 *
-                 * No usamos movements[0], porque puede haber
-                 * registros duplicados o un orden diferente.
-                 */
                 const nextInitial =
                     next.movements.find(
                         movement =>
@@ -144,33 +131,11 @@ export class Rule003 {
 
                 /*
                  * ====================================================
-                 * 5. OBTENER MESES
+                 * VALIDAR COSTOS
                  * ====================================================
                  */
-
-                const fromMonth =
-                    currentLast.month ??
-                    current.movements.find(
-                        movement => movement.month !== null
-                    )?.month ??
-                    0;
-
-                const toMonth =
-                    nextInitial.month ??
-                    next.movements.find(
-                        movement => movement.month !== null
-                    )?.month ??
-                    0;
-
-                /*
-                 * ====================================================
-                 * 6. VALIDAR COSTOS
-                 * ====================================================
-                 */
-
                 const differences: string[] = [];
 
-                // Costo Unitario
                 if (
                     !this.equals(
                         currentLast.balanceUnitCost,
@@ -180,7 +145,6 @@ export class Rule003 {
                     differences.push("Costo Unitario");
                 }
 
-                // Costo Total
                 if (
                     !this.equals(
                         currentLast.balanceTotalCost,
@@ -190,70 +154,34 @@ export class Rule003 {
                     differences.push("Costo Total");
                 }
 
-                /*
-                 * Si ambos costos coinciden,
-                 * no existe incidencia.
-                 */
                 if (differences.length === 0) {
                     continue;
                 }
 
-                /*
-                 * ====================================================
-                 * 7. GENERAR FINDING
-                 * ====================================================
-                 */
-
                 findings.push({
-
                     ruleId: "RULE_003",
-
                     productCode: current.code,
-
                     productName: current.description,
-
-                    errorType:
-                        "MONTHLY_COST_CONTINUITY_ERROR",
-
+                    errorType: "MONTHLY_COST_CONTINUITY_ERROR",
                     description:
-                        `No existe continuidad de costos entre el cierre del mes ${fromMonth} ` +
-                        `y el inicio del mes ${toMonth}: ${differences.join(", ")}.`,
-
+                        `No existe continuidad de costos entre el cierre del mes ${month} ` +
+                        `y el inicio del mes ${month + 1}: ${differences.join(", ")}.`,
                     recommendation:
                         "Verifique que el costo unitario y el costo total del saldo final coincidan con el saldo inicial del siguiente período.",
-
                     riskLevel: "ALTO",
-
                     metadata: {
-
-                        fromIndex: fromMonth,
-
-                        toIndex: toMonth,
-
+                        fromIndex: month,
+                        toIndex: month + 1,
                         finalBalance: {
-
-                            quantity:
-                                currentLast.balanceQuantity,
-
-                            unitCost:
-                                currentLast.balanceUnitCost,
-
-                            totalCost:
-                                currentLast.balanceTotalCost
+                            quantity: currentLast.balanceQuantity,
+                            unitCost: currentLast.balanceUnitCost,
+                            totalCost: currentLast.balanceTotalCost
                         },
-
                         initialBalance: {
-
-                            quantity:
-                                nextInitial.balanceQuantity,
-
-                            unitCost:
-                                nextInitial.balanceUnitCost,
-
-                            totalCost:
-                                nextInitial.balanceTotalCost
+                            quantity: nextInitial.balanceQuantity,
+                            unitCost: nextInitial.balanceUnitCost,
+                            totalCost: nextInitial.balanceTotalCost
                         },
-
                         differences
                     }
                 });

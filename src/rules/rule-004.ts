@@ -7,11 +7,6 @@ import { CodeHelper } from "../helpers/code.helper";
 
 export class Rule004 {
 
-    private static readonly DEBUG_DOCUMENTS = [
-        "Fac-F001-501064",
-        "Fac-F001-1588"
-    ];
-
     static execute(data: AuditData): Finding[] {
 
         const findings: Finding[] = [];
@@ -98,11 +93,33 @@ export class Rule004 {
              * Período = Enero
              */
 
-            const periodDate =
-                transit.warehouseDate ?? transit.issueDate;
+            const periodDateObj =
+                new Date(transit.warehouseDate ?? transit.issueDate);
+
+            /*
+             * ========================================================
+             * 4b. POLÍTICA DE MERCADERÍA EN TRÁNSITO: CORTE POR AÑO
+             * ========================================================
+             *
+             * Si el ingreso al almacén cae en un año DISTINTO al
+             * ejercicio auditado, la mercadería legítimamente puede
+             * seguir en tránsito fuera del año que estamos auditando.
+             * No corresponde exigir que ya esté en el Kardex de ESTE
+             * ejercicio, así que no se genera hallazgo.
+             *
+             * Si no tenemos el año de la auditoría disponible (datos
+             * viejos), no podemos aplicar este corte — se mantiene el
+             * comportamiento anterior.
+             */
+            if (
+                data.year !== undefined &&
+                periodDateObj.getFullYear() !== data.year
+            ) {
+                continue;
+            }
 
             const periodMonth =
-                new Date(periodDate).getMonth() + 1;
+                periodDateObj.getMonth() + 1;
 
             /*
              * ========================================================

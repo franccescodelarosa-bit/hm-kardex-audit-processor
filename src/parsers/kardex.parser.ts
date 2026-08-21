@@ -1,5 +1,7 @@
 import ExcelJS from "exceljs";
 import { KardexProduct } from "../models/kardex-product";
+import { ExcelCellHelper } from "../helpers/excel-cell.helper";
+import { DateHelper } from "../helpers/date.helper";
 enum ParserState {
     SEARCH_PRODUCT,
     READ_MOVEMENTS
@@ -85,12 +87,6 @@ export class KardexParser {
     private static isProduct(row: any): boolean {
         return this.findText(row, "Codigo:") !== "";
     }
-    private static excelDateToJsDate(serial: number): Date {
-        const utcDays = Math.floor(serial - 25569);
-        const utcValue = utcDays * 86400;
-        return new Date(utcValue * 1000);
-    }
-    
     private static loggedMovementType = false;
     private static isMovement(row: any): boolean {
         const value = row.getCell(1).value;
@@ -132,17 +128,14 @@ export class KardexParser {
         };
     }
     private static number(row: any, index: number): number {
-        const value = row.getCell(index).value;
-        if (value === null || value === undefined || value === "")
-            return 0;
-        return Number(value);
+        return ExcelCellHelper.toNumber(row.getCell(index).value);
     }
 
     private static parseMovement(row: any) {
         const serial = row.getCell(1).value as number;
-        const date = this.excelDateToJsDate(serial);
+        const date = DateHelper.excelSerialToDate(serial);
         return {
-            month: date.getMonth() + 1,
+            month: DateHelper.monthOf(date),
             date,
             document: this.cell(row,2),
             operation: this.cell(row,5),

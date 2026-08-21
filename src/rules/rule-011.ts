@@ -1,5 +1,7 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
+import { KardexProduct } from "../models/kardex-product";
+import { CodeHelper } from "../helpers/code.helper";
 import { DateHelper } from "../helpers/date.helper";
 
 export class Rule011 {
@@ -22,7 +24,6 @@ export class Rule011 {
             "99.1": "AUTOCONSUMO"
         };
         const code = String(operation).trim();
-        // Caso especial 99.1
         if (code === "99.1") {
             return operations[code];
         }
@@ -30,53 +31,128 @@ export class Rule011 {
         return operations[normalized] ?? `Tipo ${operation}`;
     }
 
-    // Pendiente de validación funcional con el cliente.
-    // Actualmente se considera una variación mayor al 50%.
+    // Confirmado con el spec: 25% (el "100/105/95" del diagrama era solo
+    // un ejemplo ilustrativo, no define el porcentaje real).
     private static readonly COST_VARIATION_THRESHOLD = 0.25;
+
+    private static readonly INITIAL_BALANCE_OPERATION = "16";
+
     static execute(data: AuditData): Finding[] {
+
         const findings: Finding[] = [];
+
+        /*
+         * Misma estructura que RULE_002/RULE_003: agrupar por código ->
+         * mes -> producto, y comparar el CIERRE de un mes (última fila)
+         * contra la APERTURA del mes siguiente (primera fila, TipoOp 16).
+         * NO se compara movimiento contra movimiento dentro de un mismo
+         * mes — eso generaba falsos positivos con saltos de costo que
+         * se corrigen solos dentro del propio mes.
+         */
+        const historyByCode = new Map<string, Map<number, KardexProduct>>();
+
         for (const product of data.kardex) {
-            if (product.movements.length < 2) {
+
+            const code = CodeHelper.normalize(product.code);
+
+            const month = product.movements
+                .find(movement => movement.month !== null)
+                ?.month;
+
+            if (!month) {
                 continue;
             }
-            for (let i = 1; i < product.movements.length; i++) {
-                const previous = product.movements[i - 1];
-                const current = product.movements[i];
-                if (previous.balanceUnitCost <= 0) {
+
+            if (!historyByCode.has(code)) {
+                historyByCode.set(code, new Map());
+            }
+
+            // Ante duplicados del mismo código+mes, nos quedamos con el
+            // último (misma convención que RULE_002/RULE_003).
+            historyByCode.get(code)!.set(month, product);
+        }
+
+        for (const [, monthsMap] of historyByCode) {
+
+            const months = [...monthsMap.keys()].sort((a, b) => a - b);
+
+            if (months.length < 2) {
+                continue;
+            }
+
+            const firstMonth = months[0];
+            const lastMonth = months[months.length - 1];
+
+            for (let month = firstMonth; month < lastMonth; month++) {
+
+                const current = monthsMap.get(month);
+
+                if (!current) {
                     continue;
                 }
+
+                const next = monthsMap.get(month + 1);
+
+                if (!next) {
+                    continue;
+                }
+
+                const currentLast =
+                    current.movements[current.movements.length - 1];
+
+                const nextInitial =
+                    next.movements.find(
+                        movement =>
+                            String(movement.operation).trim() ===
+                            this.INITIAL_BALANCE_OPERATION
+                    );
+
+                if (!currentLast || !nextInitial) {
+                    continue;
+                }
+
+                if (currentLast.balanceUnitCost <= 0) {
+                    continue;
+                }
+
                 const variation =
                     Math.abs(
-                        current.balanceUnitCost - previous.balanceUnitCost
-                    ) / previous.balanceUnitCost;
+                        nextInitial.balanceUnitCost - currentLast.balanceUnitCost
+                    ) / currentLast.balanceUnitCost;
 
                 if (variation <= this.COST_VARIATION_THRESHOLD) {
                     continue;
                 }
-                const operationName = this.getOperationName(current.operation);
+
+                const operationName = this.getOperationName(nextInitial.operation);
+
                 findings.push({
                     ruleId: "RULE_011",
-                    productCode: product.code,
-                    productName: product.description,
+                    productCode: current.code,
+                    productName: current.description,
                     errorType: "UNUSUAL_UNIT_COST_VARIATION",
                     description:
-                        `Se detectó una variación inusual del costo unitario en una operación de ${operationName} (Tipo ${current.operation}).`,
+                        `Se detectó una variación inusual del costo unitario entre el cierre del mes ${month} ` +
+                        `y la apertura del mes ${month + 1} (${operationName}).`,
                     recommendation:
-                        "Verifique la valorización del ajuste y su sustento documentario.",
+                        "Verifique la valorización del período y su sustento documentario.",
                     riskLevel: "MEDIO",
                     metadata: {
-                        date: DateHelper.toDateString(current.date),
-                        month: current.month,
-                        document: current.document,
-                        operation: current.operation,
-                        previousCost: previous.balanceUnitCost,
-                        currentCost: current.balanceUnitCost,
+                        month: month + 1,
+                        fromMonth: month,
+                        toMonth: month + 1,
+                        date: DateHelper.toDateString(nextInitial.date),
+                        document: nextInitial.document,
+                        operation: nextInitial.operation,
+                        previousCost: currentLast.balanceUnitCost,
+                        currentCost: nextInitial.balanceUnitCost,
                         variationPercent:
                             Number((variation * 100).toFixed(2))
                     }
                 });
             }
         }
+
         return findings;
     }
 }

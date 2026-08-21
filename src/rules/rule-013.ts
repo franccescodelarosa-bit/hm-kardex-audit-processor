@@ -1,66 +1,25 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
+import { KardexMovement } from "../models/kardex-movement";
 import { CodeHelper } from "../helpers/code.helper";
-
-interface MonthlySummary {
-    month: number;
-
-    initialQuantity: number;
-    initialTotalCost: number;
-
-    totalEntryQuantity: number;
-    totalEntryCost: number;
-
-    totalExitQuantity: number;
-    totalExitCost: number;
-
-    expectedFinalQuantity: number;
-    expectedFinalTotalCost: number;
-
-    lowerCostLimit: number;
-    upperCostLimit: number;
-
-    finalQuantity: number;
-    finalTotalCost: number;
-
-    movementCount: number;
-
-    quantityDifference: number;
-    totalCostDifference: number;
-
-    quantityIsValid: boolean;
-    totalCostIsValid: boolean;
-}
 
 export class Rule013 {
 
-    /*
-     * Tolerancia para comparación exacta de cantidades.
-     */
-    private static readonly QUANTITY_TOLERANCE = 0.01;
+    private static readonly ENTRY_OPERATION = "02";
+    private static readonly EXIT_OPERATION = "01";
 
-    /*
-     * Tolerancia contable del costo valorizado:
-     * ±2.5%
-     */
-    private static readonly COST_TOLERANCE_PERCENT = 0.025;
-
-    private static equals(a: number, b: number): boolean {
-        return Math.abs(a - b) < this.QUANTITY_TOLERANCE;
+    private static roundToCents(value: number): number {
+        return Math.round(value * 100) / 100;
     }
 
-    private static round(value: number): number {
-        return Math.round((value + Number.EPSILON) * 100) / 100;
+    /** Compara dos montos en centavos exactos (como enteros, sin ambigüedad de punto flotante). */
+    private static centsEqual(a: number, b: number): boolean {
+        return Math.round(a * 100) === Math.round(b * 100);
     }
 
     static execute(data: AuditData): Finding[] {
 
         const findings: Finding[] = [];
-
-        console.log("==========================================");
-        console.log("RULE_013 - INICIO");
-        console.log(`Productos recibidos: ${data.kardex.length}`);
-        console.log("==========================================");
 
         for (const product of data.kardex) {
 
@@ -68,467 +27,142 @@ export class Rule013 {
                 continue;
             }
 
-            const normalizedCode =
-                CodeHelper.normalize(product.code);
+            const month = product.movements.find(m => m.month !== null)?.month ?? 0;
 
-            /*
-             * =========================================================
-             * AGRUPAR MOVIMIENTOS POR MES
-             * =========================================================
-             */
-            const movementsByMonth =
-                new Map<number, typeof product.movements>();
+            const [first, ...rest] = product.movements;
 
-            for (const movement of product.movements) {
-
-                if (movement.month === null) {
-                    continue;
-                }
-
-                if (!movementsByMonth.has(movement.month)) {
-                    movementsByMonth.set(
-                        movement.month,
-                        []
-                    );
-                }
-
-                movementsByMonth
-                    .get(movement.month)!
-                    .push(movement);
+            if (rest.length === 0) {
+                // Solo Saldo Inicial, nada para recalcular en este período.
+                continue;
             }
 
-            /*
-             * =========================================================
-             * VALIDAR CADA MES
-             * =========================================================
-             */
-            for (const [month, movements] of movementsByMonth) {
-
-                if (movements.length === 0) {
-                    continue;
-                }
-
-                const firstMovement = movements[0];
-
-                const lastMovement =
-                    movements[movements.length - 1];
-
-                /*
-                 * =====================================================
-                 * SALDO INICIAL
-                 * =====================================================
-                 *
-                 * El saldo inicial NO se mezcla con las entradas.
-                 *
-                 * Se reconstruye usando el saldo resultante del primer
-                 * movimiento:
-                 *
-                 * Saldo Inicial
-                 * + Entrada
-                 * - Salida
-                 * = Saldo Final del movimiento
-                 *
-                 * Por tanto:
-                 *
-                 * Saldo Inicial
-                 * = Saldo Final
-                 * - Entrada
-                 * + Salida
-                 *
-                 * Esto permite separar:
-                 *
-                 * - Saldo inicial
-                 * - Entradas reales del período
-                 * - Salidas reales del período
-                 */
-                const initialQuantity =
-                    firstMovement.balanceQuantity
-                    - firstMovement.entryQuantity
-                    + firstMovement.exitQuantity;
-
-                const initialTotalCost =
-                    firstMovement.balanceTotalCost
-                    - firstMovement.entryTotalCost
-                    + firstMovement.exitTotalCost;
-
-                /*
-                 * =====================================================
-                 * SUMA DE ENTRADAS DEL MES
-                 * =====================================================
-                 *
-                 * Aquí se imprimen únicamente las columnas ENTRADAS
-                 * del Kardex.
-                 */
-                const totalEntryQuantity =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum + movement.entryQuantity,
-                        0
-                    );
-
-                const totalEntryCost =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum + movement.entryTotalCost,
-                        0
-                    );
-
-                /*
-                 * =====================================================
-                 * SUMA DE SALIDAS DEL MES
-                 * =====================================================
-                 */
-                const totalExitQuantity =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum + movement.exitQuantity,
-                        0
-                    );
-
-                const totalExitCost =
-                    movements.reduce(
-                        (sum, movement) =>
-                            sum + movement.exitTotalCost,
-                        0
-                    );
-
-                /*
-                 * =====================================================
-                 * SALDO FINAL REAL
-                 * =====================================================
-                 *
-                 * Se toma del último movimiento del mes.
-                 */
-                const finalQuantity =
-                    lastMovement.balanceQuantity;
-
-                const finalTotalCost =
-                    lastMovement.balanceTotalCost;
-
-                /*
-                 * =====================================================
-                 * CANTIDAD ESPERADA
-                 * =====================================================
-                 *
-                 * La cantidad debe cumplir:
-                 *
-                 * Saldo Inicial
-                 * + Entradas
-                 * - Salidas
-                 * = Saldo Final
-                 */
-                const expectedFinalQuantity =
-                    initialQuantity
-                    + totalEntryQuantity
-                    - totalExitQuantity;
-
-                /*
-                 * =====================================================
-                 * COSTO VALORIZADO CALCULADO
-                 * =====================================================
-                 *
-                 * Este valor NO se compara por igualdad exacta.
-                 *
-                 * Se utiliza como base para calcular el rango
-                 * permitido de ±2.5%.
-                 */
-                const expectedFinalTotalCost =
-                    initialTotalCost
-                    + totalEntryCost
-                    - totalExitCost;
-
-                /*
-                 * =====================================================
-                 * RANGO PERMITIDO DEL COSTO
-                 * =====================================================
-                 *
-                 * Mínimo = resultado × 97.5%
-                 * Máximo = resultado × 102.5%
-                 */
-                const lowerCostLimit =
-                    expectedFinalTotalCost
-                    * (
-                        1
-                        - this.COST_TOLERANCE_PERCENT
-                    );
-
-                const upperCostLimit =
-                    expectedFinalTotalCost
-                    * (
-                        1
-                        + this.COST_TOLERANCE_PERCENT
-                    );
-
-                /*
-                 * =====================================================
-                 * DIFERENCIAS
-                 * =====================================================
-                 */
-                const quantityDifference =
-                    expectedFinalQuantity
-                    - finalQuantity;
-
-                const totalCostDifference =
-                    expectedFinalTotalCost
-                    - finalTotalCost;
-
-                /*
-                 * =====================================================
-                 * VALIDACIÓN DE CANTIDAD
-                 * =====================================================
-                 *
-                 * Debe ser prácticamente exacta.
-                 */
-                const quantityIsValid =
-                    this.equals(
-                        expectedFinalQuantity,
-                        finalQuantity
-                    );
-
-                /*
-                 * =====================================================
-                 * VALIDACIÓN DE COSTO
-                 * =====================================================
-                 *
-                 * El saldo final real debe encontrarse dentro de:
-                 *
-                 * 97.5% <= Saldo Final Real <= 102.5%
-                 *
-                 * del costo valorizado calculado.
-                 */
-                const totalCostIsValid =
-                    finalTotalCost >= lowerCostLimit
-                    &&
-                    finalTotalCost <= upperCostLimit;
-
-                /*
-                 * =====================================================
-                 * RESUMEN
-                 * =====================================================
-                 */
-                const summary: MonthlySummary = {
-
-                    month,
-
-                    initialQuantity:
-                        this.round(initialQuantity),
-
-                    initialTotalCost:
-                        this.round(initialTotalCost),
-
-                    totalEntryQuantity:
-                        this.round(totalEntryQuantity),
-
-                    totalEntryCost:
-                        this.round(totalEntryCost),
-
-                    totalExitQuantity:
-                        this.round(totalExitQuantity),
-
-                    totalExitCost:
-                        this.round(totalExitCost),
-
-                    expectedFinalQuantity:
-                        this.round(expectedFinalQuantity),
-
-                    expectedFinalTotalCost:
-                        this.round(expectedFinalTotalCost),
-
-                    lowerCostLimit:
-                        this.round(lowerCostLimit),
-
-                    upperCostLimit:
-                        this.round(upperCostLimit),
-
-                    finalQuantity:
-                        this.round(finalQuantity),
-
-                    finalTotalCost:
-                        this.round(finalTotalCost),
-
-                    movementCount:
-                        movements.length,
-
-                    quantityDifference:
-                        this.round(quantityDifference),
-
-                    totalCostDifference:
-                        this.round(totalCostDifference),
-
-                    quantityIsValid,
-
-                    totalCostIsValid
-                };
-
-                /*
-                 * =====================================================
-                 * CONSTRUCCIÓN DE DIFERENCIAS
-                 * =====================================================
-                 */
-                const differences: string[] = [];
-
-                if (!quantityIsValid) {
-                    differences.push("Cantidad");
-                }
-
-                if (!totalCostIsValid) {
-                    differences.push(
-                        "Costo valorizado fuera del rango permitido"
-                    );
-                }
-
-                /*
-                 * Si cantidad y costo cumplen, no existe observación.
-                 */
-                if (differences.length === 0) {
-                    continue;
-                }
-
-                /*
-                 * =====================================================
-                 * FINDING
-                 * =====================================================
-                 */
-                findings.push({
-
-                    ruleId: "RULE_013",
-
-                    productCode:
-                        product.code,
-
-                    productName:
-                        product.description,
-
-                    errorType:
-                        "INVALID_MONTHLY_SUM",
-
-                    description:
-                        `Las sumatorias mensuales del producto ` +
-                        `${product.code} presentan diferencias ` +
-                        `para el mes ${month}. ` +
-                        `La cantidad debe cumplir la fórmula ` +
-                        `Saldo Inicial + Entradas - Salidas = Saldo Final. ` +
-                        `El costo valorizado final debe encontrarse ` +
-                        `entre el 97.5% y el 102.5% del costo calculado. ` +
-                        `Diferencias: ${differences.join(", ")}.`,
-
-                    recommendation:
-                        "Verifique el saldo inicial, las sumatorias " +
-                        "mensuales de entradas y salidas, y confirme " +
-                        "que el costo valorizado final se encuentre " +
-                        "dentro del rango permitido de ±2.5%.",
-
-                    riskLevel:
-                        "CRITICO",
-
-                    metadata: {
-
-                        month,
-
-                        normalizedCode,
-
-                        /*
-                         * SALDO INICIAL
-                         *
-                         * Se mantiene separado de las entradas.
-                         */
-                        initialBalance: {
-                            quantity:
-                                summary.initialQuantity,
-
-                            totalCost:
-                                summary.initialTotalCost
-                        },
-
-                        /*
-                         * SUMATORIAS REALES DEL KARDEX
-                         */
-                        totals: {
-
-                            entry: {
-                                quantity:
-                                    summary.totalEntryQuantity,
-
-                                totalCost:
-                                    summary.totalEntryCost
-                            },
-
-                            exit: {
-                                quantity:
-                                    summary.totalExitQuantity,
-
-                                totalCost:
-                                    summary.totalExitCost
-                            }
-                        },
-
-                        /*
-                         * RESULTADO CALCULADO
-                         */
-                        expectedFinalBalance: {
-
-                            quantity:
-                                summary.expectedFinalQuantity,
-
-                            totalCost:
-                                summary.expectedFinalTotalCost
-                        },
-
-                        /*
-                         * RANGO DE TOLERANCIA DEL COSTO
-                         */
-                        costTolerance: {
-
-                            percentage: 2.5,
-
-                            lowerLimit:
-                                summary.lowerCostLimit,
-
-                            upperLimit:
-                                summary.upperCostLimit
-                        },
-
-                        /*
-                         * SALDO FINAL REAL DEL KARDEX
-                         */
-                        actualFinalBalance: {
-
-                            quantity:
-                                summary.finalQuantity,
-
-                            totalCost:
-                                summary.finalTotalCost
-                        },
-
-                        /*
-                         * DIFERENCIAS INFORMATIVAS
-                         */
-                        difference: {
-
-                            quantity:
-                                summary.quantityDifference,
-
-                            totalCost:
-                                summary.totalCostDifference
-                        },
-
-                        movementCount:
-                            summary.movementCount,
-
-                        differences
+            let cantidadAcumulada = first.balanceQuantity;
+            let valorAcumulado = first.balanceTotalCost;
+            let cpp = cantidadAcumulada > 0 ? valorAcumulado / cantidadAcumulada : 0;
+
+            let totalEntradaCantidad = 0;
+            let totalEntradaCosto = 0;
+            let totalSalidaCantidadRecalculada = 0;
+            let totalSalidaCostoRecalculado = 0;
+            let totalSalidaCostoArchivo = 0;
+
+            for (const movement of rest) {
+                this.applyMovement(movement, {
+                    onEntry: () => {
+                        const nuevoValor = valorAcumulado + movement.entryTotalCost;
+                        const nuevaCantidad = cantidadAcumulada + movement.entryQuantity;
+                        cpp = nuevaCantidad > 0 ? nuevoValor / nuevaCantidad : 0;
+                        valorAcumulado = nuevoValor;
+                        cantidadAcumulada = nuevaCantidad;
+                        totalEntradaCantidad += movement.entryQuantity;
+                        totalEntradaCosto += movement.entryTotalCost;
+                    },
+                    onExit: () => {
+                        const costoSalida = this.roundToCents(cpp) * movement.exitQuantity;
+                        valorAcumulado -= costoSalida;
+                        cantidadAcumulada -= movement.exitQuantity;
+                        // El CPP NO cambia en una salida.
+                        totalSalidaCantidadRecalculada += movement.exitQuantity;
+                        totalSalidaCostoRecalculado += costoSalida;
+                        totalSalidaCostoArchivo += movement.exitTotalCost;
                     }
                 });
             }
+
+            const last = product.movements[product.movements.length - 1];
+
+            const differences: string[] = [];
+
+            const salidaCoincide = this.centsEqual(totalSalidaCostoRecalculado, totalSalidaCostoArchivo);
+            if (!salidaCoincide) {
+                differences.push("Costo Total de Salidas");
+            }
+
+            const saldoFinalCoincide = this.centsEqual(valorAcumulado, last.balanceTotalCost);
+            if (!saldoFinalCoincide) {
+                differences.push("Costo Total de Saldo Final");
+            }
+
+            const cantidadEsCero = this.centsEqual(cantidadAcumulada, 0) && this.centsEqual(last.balanceQuantity, 0);
+            const costoUnitarioCoincide = cantidadEsCero || this.centsEqual(cpp, last.balanceUnitCost);
+            if (!costoUnitarioCoincide) {
+                differences.push("Costo Unitario de Saldo Final");
+            }
+
+            if (differences.length === 0) {
+                continue;
+            }
+
+            findings.push({
+                ruleId: "RULE_013",
+                productCode: product.code,
+                productName: product.description,
+                errorType: "INVALID_CPP",
+                description:
+                    `Las sumatorias del producto ${product.code} no cumplen la metodología de Costo Promedio ` +
+                    `Ponderado para el mes ${month}. Diferencias: ${differences.join(", ")}.`,
+                recommendation:
+                    "Verifique el cálculo del Costo Promedio Ponderado: las entradas deben recalcularlo, " +
+                    "las salidas deben usar el CPP vigente sin modificarlo.",
+                riskLevel: "CRITICO",
+                metadata: {
+                    month,
+                    normalizedCode: CodeHelper.normalize(product.code),
+                    initialBalance: {
+                        quantity: first.balanceQuantity,
+                        totalCost: first.balanceTotalCost
+                    },
+                    totals: {
+                        entry: {
+                            quantity: totalEntradaCantidad,
+                            totalCost: this.roundToCents(totalEntradaCosto)
+                        },
+                        exit: {
+                            quantity: totalSalidaCantidadRecalculada,
+                            totalCost: this.roundToCents(totalSalidaCostoRecalculado),
+                            totalCostArchivo: this.roundToCents(totalSalidaCostoArchivo)
+                        }
+                    },
+                    expectedFinalBalance: {
+                        quantity: cantidadAcumulada,
+                        unitCost: this.roundToCents(cpp),
+                        totalCost: this.roundToCents(valorAcumulado)
+                    },
+                    costTolerance: {
+                        percentage: 0,
+                        lowerLimit: this.roundToCents(valorAcumulado),
+                        upperLimit: this.roundToCents(valorAcumulado)
+                    },
+                    actualFinalBalance: {
+                        quantity: last.balanceQuantity,
+                        unitCost: last.balanceUnitCost,
+                        totalCost: last.balanceTotalCost
+                    },
+                    difference: {
+                        quantity: Number((cantidadAcumulada - last.balanceQuantity).toFixed(2)),
+                        unitCost: this.roundToCents(cpp - last.balanceUnitCost),
+                        totalCost: this.roundToCents(valorAcumulado - last.balanceTotalCost)
+                    },
+                    movementCount: product.movements.length,
+                    differences
+                }
+            });
         }
 
-        console.log("");
-        console.log("==========================================");
-        console.log("RULE_013 - FIN");
-        console.log(
-            `Findings encontrados: ${findings.length}`
-        );
-        console.log("==========================================");
-
         return findings;
+    }
+
+    private static applyMovement(
+        movement: KardexMovement,
+        handlers: { onEntry: () => void; onExit: () => void }
+    ) {
+        const operation = String(movement.operation).trim();
+        if (operation === this.ENTRY_OPERATION || Number(movement.entryQuantity || 0) > 0) {
+            handlers.onEntry();
+            return;
+        }
+        if (operation === this.EXIT_OPERATION || Number(movement.exitQuantity || 0) > 0) {
+            handlers.onExit();
+        }
     }
 }
