@@ -1,8 +1,8 @@
 import { AuditData } from "../models/audit-data";
 import { Finding } from "../models/finding";
 import { DocumentHelper } from "../helpers/document.helper";
-import { KardexMovement } from "../models/kardex-movement";
 import { DateHelper } from "../helpers/date.helper";
+import { CodeHelper } from "../helpers/code.helper";
 const MAX_DIFFERENCE_PERCENT = 5;
 export class Rule012 {
 
@@ -11,13 +11,9 @@ export class Rule012 {
         const findings: Finding[] = [];
 
         // ============================================================
-        // 1. ÍNDICE DE MOVIMIENTOS DE KARDEX POR DOCUMENTO
-        // ============================================================        
-        const documents = new Map<string, {
-            productCode: string;
-            productName: string;
-            movement: KardexMovement;
-        }[]>();
+        // 1. ÍNDICE DE DOCUMENTOS DEL KARDEX
+        // ============================================================
+        const documents = new Set<string>();
         for (const product of data.kardex) {
             for (const movement of product.movements) {
                 // Solo ingresos
@@ -28,55 +24,77 @@ export class Rule012 {
                 if (!normalizedDocument) {
                     continue;
                 }
-                if (!documents.has(normalizedDocument)) {
-                    documents.set(normalizedDocument, []);
-                }
-
-                documents.get(normalizedDocument)!.push({
-                    productCode: product.code,
-                    productName: product.description,
-                    movement
-                });
+                documents.add(normalizedDocument);
             }
         }
 
         // ============================================================
-        // 2. DEBUG: RESULTADO FINAL DEL ÍNDICE
+        // 2. CRUCE CONTRA MERCADERÍA EN TRÁNSITO
         // ============================================================
 
-
-        // ============================================================
-        // 3. CRUCE CONTRA MERCADERÍA EN TRÁNSITO
-        // ============================================================
-        
         for (const transit of data.transit) {
 
             const normalizedDocument =
                 DocumentHelper.normalize(transit.document);
 
-            const matches =
-                documents.get(normalizedDocument) ?? [];
-
-            // RULE004 ya reporta cuando no existe
-            if (matches.length === 0) {
+            // RULE004 ya reporta cuando el documento no existe
+            if (!documents.has(normalizedDocument)) {
                 continue;
             }
 
             // ========================================================
-            // 4. SUMA DEL KARDEX
+            // 3. YA NO SE BAJA AL KARDEX POR DOCUMENTO PARA SUMAR.
             // ========================================================
+            
 
-            const kardexTotal = matches.reduce(
-                (sum, product) =>
-                    sum + Number(product.movement.entryTotalCost || 0),
-                0
+            const month = DateHelper.monthOf(
+                new Date(transit.warehouseDate ?? transit.issueDate)
             );
 
-            const evaluatedProducts = matches.map(product => ({
-                code: product.productCode,
-                description: product.productName,
-                cost: Number(product.movement.entryTotalCost || 0)
-            }));
+            const acquiredCodes =
+                String(transit.acquiredCodes ?? "")
+                    .split(/[-,;\n]/)
+                    .map(code => CodeHelper.normalize(code))
+                    .filter(Boolean);
+
+            const evaluatedProducts: {
+                code: string;
+                description: string;
+                cost: number;
+            }[] = [];
+
+            let kardexTotal = 0;
+
+            for (const product of data.kardex) {
+
+                const normalizedProductCode =
+                    CodeHelper.normalize(product.code);
+
+                if (!acquiredCodes.includes(normalizedProductCode)) {
+                    continue;
+                }
+
+                for (const movement of product.movements) {
+
+                    if (movement.month !== month) {
+                        continue;
+                    }
+
+                    // Solo ingresos
+                    if (Number(movement.entryQuantity || 0) <= 0) {
+                        continue;
+                    }
+
+                    const cost = Number(movement.entryTotalCost || 0);
+                    kardexTotal += cost;
+
+                    evaluatedProducts.push({
+                        code: product.code,
+                        description: product.description,
+                        cost
+                    });
+                }
+            }
 
             const expectedCost = Number(
                 (
@@ -98,10 +116,6 @@ export class Rule012 {
                     : Math.abs(difference / expectedCost) * 100;
                     
             const isIncident = differencePercent > MAX_DIFFERENCE_PERCENT;
-
-            const month = DateHelper.monthOf(
-                new Date(transit.warehouseDate ?? transit.issueDate)
-            );
 
             findings.push({
                 ruleId: "RULE_012",
@@ -137,6 +151,7 @@ export class Rule012 {
 
                     document: transit.document,
                     normalizedDocument,
+                    acquiredCodes,
 
                     expectedCost,
                     kardexCost: kardexTotal,
@@ -148,7 +163,7 @@ export class Rule012 {
 
                     isIncident,
 
-                    movements: matches.length,
+                    movements: evaluatedProducts.length,
                     evaluatedProducts,
 
                     transitItem: DateHelper.toDateString(

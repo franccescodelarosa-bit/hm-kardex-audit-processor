@@ -3,6 +3,7 @@ import { Finding } from "../models/finding";
 import { InventoryItem } from "../models/inventory-item";
 import { KardexProduct } from "../models/kardex-product";
 import { CodeHelper } from "../helpers/code.helper";
+import { DateHelper } from "../helpers/date.helper";
 
 export class Rule006 {
     static execute(context: AuditData): Finding[] {
@@ -56,6 +57,15 @@ export class Rule006 {
 
             const [code, monthText] = key.split("|");
 
+            const duplicateOccurrences = products.map(product => {
+                const first = product.movements[0];
+                return {
+                    date: DateHelper.toDateString(first?.date ?? null),
+                    document: first?.document ?? "",
+                    movementCount: product.movements.length
+                };
+            });
+
             findings.push({
                 ruleId: "RULE_006",
                 productCode: code,
@@ -68,7 +78,7 @@ export class Rule006 {
                     source: "KARDEX",
                     month: Number(monthText),
                     occurrences: products.length,
-                    rows: []
+                    duplicateOccurrences
                 }
             });
         }

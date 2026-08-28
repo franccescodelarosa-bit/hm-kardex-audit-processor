@@ -410,13 +410,11 @@ export class Rule014 {
              * ========================================================
              * VALIDACIONES
              * ========================================================
+             *
+             * Solo se valida el Inventario Valorizado (costo) -- el
+             * diagrama oficial y el Anexo 03 nunca piden validar
+             * Cantidad, así que no se calcula ningún `quantityIsValid`.
              */
-            const quantityIsValid =
-                this.equals(
-                    expectedFinalQuantity,
-                    summary.finalQuantity
-                );
-
             const totalCostIsValid =
                 this.centsEqual(
                     summary.finalTotalCost,
@@ -430,9 +428,6 @@ export class Rule014 {
              */
             const differences: string[] = [];
 
-            if (!quantityIsValid) {
-                differences.push("Cantidad");
-            }
 
             if (!totalCostIsValid) {
                 differences.push(

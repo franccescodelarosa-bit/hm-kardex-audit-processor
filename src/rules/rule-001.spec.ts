@@ -21,7 +21,7 @@ test("RULE_001: no genera hallazgo si el inventario inicial coincide con el Sald
     assert.equal(findings.length, 0);
 });
 
-test("RULE_001: SÍ genera hallazgo cuando el inventario inicial NO coincide con el Saldo Inicial del Kardex", () => {
+test("RULE_001: SÍ genera hallazgo cuando el inventario final NO coincide con el Saldo Inicial del Kardex", () => {
     const data = auditData({
         initialInventory: [inventoryItem("0000000001", "PRODUCTO A", 10, 5)],
         kardex: [kardexProduct("0000000001", "PRODUCTO A", [saldoInicial(15, 5)])]

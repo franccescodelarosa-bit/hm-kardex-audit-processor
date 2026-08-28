@@ -49,17 +49,17 @@ export class Rule005 {
                 
                 if (hasNegative) {
                     const negatives: string[] = [];
-                    if (movement.entryQuantity < 0) negatives.push("Cantidad Entrada");
-                    if (movement.entryUnitCost < 0) negatives.push("Costo Entrada");
-                    if (movement.entryTotalCost < 0) negatives.push("Total Entrada");
+                    if (movement.entryQuantity < 0) negatives.push("Cantidad de Entrada");
+                    if (movement.entryUnitCost < 0) negatives.push("Costo Unitario de Entrada");
+                    if (movement.entryTotalCost < 0) negatives.push("Costo Total de Entrada");
 
-                    if (movement.exitQuantity < 0) negatives.push("Cantidad Salida");
-                    if (movement.exitUnitCost < 0) negatives.push("Costo Salida");
-                    if (movement.exitTotalCost < 0) negatives.push("Total Salida");
+                    if (movement.exitQuantity < 0) negatives.push("Cantidad de Salida");
+                    if (movement.exitUnitCost < 0) negatives.push("Costo Unitario de Salida");
+                    if (movement.exitTotalCost < 0) negatives.push("Costo Total de Salida");
 
-                    if (movement.balanceQuantity < 0) negatives.push("Cantidad Saldo");
-                    if (movement.balanceUnitCost < 0) negatives.push("Costo Saldo");
-                    if (movement.balanceTotalCost < 0) negatives.push("Total Saldo");
+                    if (movement.balanceQuantity < 0) negatives.push("Cantidad de Saldo");
+                    if (movement.balanceUnitCost < 0) negatives.push("Costo Unitario de Saldo");
+                    if (movement.balanceTotalCost < 0) negatives.push("Costo Total de Saldo");
 
                     findings.push({
                         ruleId: "RULE_005",

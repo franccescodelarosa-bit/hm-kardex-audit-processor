@@ -58,7 +58,7 @@ export class Rule013 {
                         totalEntradaCosto += movement.entryTotalCost;
                     },
                     onExit: () => {
-                        const costoSalida = this.roundToCents(cpp) * movement.exitQuantity;
+                        const costoSalida = cpp * movement.exitQuantity;
                         valorAcumulado -= costoSalida;
                         cantidadAcumulada -= movement.exitQuantity;
                         // El CPP NO cambia en una salida.

@@ -21,6 +21,17 @@ function productoSimple() {
     ]);
 }
 
+/** El SEGUNDO producto real del Anexo 03 (COD: 0000011), tal cual el Excel oficial. */
+function productoAnexoSegundo() {
+    return kardexProduct("0000011", "PRODUCTO ANEXO 2", [
+        movement({ operation: "16", balanceQuantity: 1000, balanceUnitCost: 10, balanceTotalCost: 10000, month: 1 }),
+        movement({ operation: "02", entryQuantity: 100, entryUnitCost: 12, entryTotalCost: 1200, balanceQuantity: 1100, balanceTotalCost: 11200, month: 1 }),
+        movement({ operation: "01", exitQuantity: 80, exitTotalCost: 853.6, balanceQuantity: 1020, balanceTotalCost: 10346.4, month: 1 }),
+        movement({ operation: "01", exitQuantity: 500, exitTotalCost: 5335, balanceQuantity: 520, balanceTotalCost: 5011.4, month: 1 }),
+        movement({ operation: "02", entryQuantity: 3000, entryUnitCost: 12.5, entryTotalCost: 37500, balanceQuantity: 3520, balanceTotalCost: 42511.4, month: 1 })
+    ]);
+}
+
 test("RULE_014 (validado contra el Anexo 03): la ecuación de conciliación global cierra -> sin hallazgo", () => {
     const data = auditData({ kardex: [productoAnexo(), productoSimple()] });
     const findings = Rule014.execute(data);
@@ -52,4 +63,23 @@ test("RULE_014: solo se suman entradas de OPERACIÓN 2 y salidas de OPERACIÓN 1
     // Inicio(500) + Entrada op.2 (0, el ajuste NO cuenta) - Salida op.1 (0) = 500
     // Cierre real = 550 (por el ajuste) -> esperado(500) != cierre(550) -> SÍ hallazgo
     assert.equal(findings.length, 1);
+});
+
+test("RULE_014 (confirmado con el diagrama oficial y el Anexo 03: 'SOLO saldo, no cantidades'): si la CANTIDAD no cierra pero el COSTO sí, NO genera hallazgo", () => {
+    const producto = kardexProduct("0000040", "PRODUCTO CON DESCUADRE SOLO EN CANTIDAD", [
+        movement({ operation: "16", balanceQuantity: 100, balanceUnitCost: 5, balanceTotalCost: 500, month: 1 }),
+        movement({ operation: "02", entryQuantity: 50, entryUnitCost: 5, entryTotalCost: 250, balanceQuantity: 150, balanceTotalCost: 750, month: 1 }),
+        // El costo cierra perfecto (750), pero la cantidad del archivo (200) no
+        // coincide con la fórmula (100+50=150) -- un desfase de cantidad puro.
+        movement({ operation: "01", exitQuantity: 0, exitTotalCost: 0, balanceQuantity: 200, balanceTotalCost: 750, month: 1 })
+    ]);
+    const data = auditData({ kardex: [producto] });
+    const findings = Rule014.execute(data);
+    assert.equal(findings.length, 0, "el diagrama de RULE_014 solo valida el Inventario Valorizado (costo), nunca cantidad");
+});
+
+test("RULE_014 (validado contra el Anexo 03 COMPLETO, los 2 productos reales): reproduce EXACTO el TOTAL GENERAL oficial -- 20000 / 57200 / 7469 / 69731", () => {
+    const data = auditData({ kardex: [productoAnexo(), productoAnexoSegundo()] });
+    const findings = Rule014.execute(data);
+    assert.equal(findings.length, 0, "el Anexo 03 es un ejemplo SIN error -- el consolidado cierra perfecto");
 });

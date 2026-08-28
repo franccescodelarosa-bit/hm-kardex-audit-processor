@@ -110,7 +110,7 @@ export class Rule008 {
                     "Verifique el código del producto o confirme que forme parte del catálogo de inventarios.",
                 riskLevel: "ALTO",
                 metadata: {
-                    source: "KARDEX",
+                    source: "Inventario",
                     month: reference.month,
                     date: DateHelper.toDateString(reference.date),
                     document: reference.document

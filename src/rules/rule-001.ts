@@ -105,7 +105,7 @@ export class Rule001 {
                 productCode: inventory.code,
                 productName: inventory.product,
                 errorType: "INVENTORY_MISMATCH",
-                description: `El inventario inicial no coincide con el Saldo Inicial del Kardex (${differences.join(", ")}).`,
+                description: `El inventario final no coincide con el Saldo Inicial del Kardex (${differences.join(", ")}).`,
                 recommendation: "Verifique el inventario inicial y el Saldo Inicial (TipoOp 16) del Kardex.",
                 riskLevel: "CRITICO",
                 metadata: {
