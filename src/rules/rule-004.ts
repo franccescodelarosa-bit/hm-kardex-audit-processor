@@ -333,16 +333,6 @@ export class Rule004 {
         return { acquiredCodes, evaluatedProducts, foundCost };
     }
 
-    /**
-     * FALLBACK: busca el costo encontrado por número de DOCUMENTO en vez
-     * de por código adquirido. Se usa solo cuando
-     * `buscarPorCodigosAdquiridos` no encontró nada (dato real
-     * confirmado con la usuaria: la columna "Códigos Adquiridos" viene
-     * vacía en el 99.6% de las facturas reales del cliente).
-     * `documentMatches` ya viene calculado en `execute()` -- ahí se usa
-     * como semáforo (¿existe o no?); acá se reutiliza esa misma info
-     * para sacar el costo real.
-     */
     private static buscarPorDocumento(
         documentMatches: {
             productCode: string;
