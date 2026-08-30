@@ -466,7 +466,12 @@ export class Rule014 {
                     "INVALID_MONTHLY_CONSOLIDATED_SUM",
 
                 description:
-                    `El consolidado general del Kardex ` +
+                    // Mensaje literal exigido por el Anexo 03 (última línea
+                    // del archivo): "EL SISTEMA DEBE EMITIR EL SIGUIENTE
+                    // MENSAJE: 'ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA
+                    // DIFERENCIA'" -- va primero, seguido del detalle.
+                    `ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA: ` +
+                    `el consolidado general del Kardex ` +
                     `para el mes ${month} no cumple la ecuación de ` +
                     `conciliación global (Inventario Valorizado de Inicio ` +
                     `+ Costo Total de Entrada - Costo Total de Salida = ` +

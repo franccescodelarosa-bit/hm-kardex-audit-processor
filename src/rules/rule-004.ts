@@ -117,14 +117,45 @@ export class Rule004 {
 
             if (documentMatches.length > 0) {
 
+                let finalEvaluatedProducts = evaluatedProducts;
+                let finalFoundCost = foundCost;
+                let usedFallback = false;
+
+                /*
+                 * ----------------------------------------------------
+                 * BUSCA POR CÓDIGO Y POR FACTURA (confirmado con la
+                 * usuaria, según sus apuntes del cliente).
+                 * ----------------------------------------------------
+                 * Primero por `acquiredCodes` (más preciso). Si no
+                 * encontró nada -- dato real: la columna "Códigos
+                 * Adquiridos" viene vacía en el 99.6% de las facturas
+                 * reales del cliente -- cae a buscar el costo por el
+                 * propio número de documento, reutilizando
+                 * `documentMatches` (ya calculado más arriba, filtrado
+                 * igual por mes).
+                 */
+                if (finalEvaluatedProducts.length === 0) {
+
+                    const fallback =
+                        this.buscarPorDocumento(
+                            documentMatches,
+                            periodMonth
+                        );
+
+                    finalEvaluatedProducts = fallback.evaluatedProducts;
+                    finalFoundCost = fallback.foundCost;
+                    usedFallback = true;
+                }
+
                 findings.push(
                     this.buildCostValidationFinding(
                         transit,
                         normalizedDocument,
                         periodMonth,
                         acquiredCodes,
-                        evaluatedProducts,
-                        foundCost
+                        finalEvaluatedProducts,
+                        finalFoundCost,
+                        usedFallback
                     )
                 );
 
@@ -302,6 +333,68 @@ export class Rule004 {
         return { acquiredCodes, evaluatedProducts, foundCost };
     }
 
+    /**
+     * FALLBACK: busca el costo encontrado por número de DOCUMENTO en vez
+     * de por código adquirido. Se usa solo cuando
+     * `buscarPorCodigosAdquiridos` no encontró nada (dato real
+     * confirmado con la usuaria: la columna "Códigos Adquiridos" viene
+     * vacía en el 99.6% de las facturas reales del cliente).
+     * `documentMatches` ya viene calculado en `execute()` -- ahí se usa
+     * como semáforo (¿existe o no?); acá se reutiliza esa misma info
+     * para sacar el costo real.
+     */
+    private static buscarPorDocumento(
+        documentMatches: {
+            productCode: string;
+            productName: string;
+            movement: KardexMovement;
+        }[],
+        periodMonth: number
+    ): {
+        evaluatedProducts: {
+            code: string;
+            description: string;
+            cost: number;
+            month: number | null;
+            document: string;
+        }[];
+        foundCost: number;
+    } {
+
+        const evaluatedProducts: {
+            code: string;
+            description: string;
+            cost: number;
+            month: number | null;
+            document: string;
+        }[] = [];
+
+        let foundCost = 0;
+
+        for (const match of documentMatches) {
+
+            // Mismo filtro por mes que se aplica en la búsqueda por
+            // código -- no vale un ingreso de otro mes.
+            if (match.movement.month !== periodMonth) {
+                continue;
+            }
+
+            const cost =
+                Number(match.movement.entryTotalCost || 0);
+
+            foundCost += cost;
+
+            evaluatedProducts.push({
+                code: match.productCode,
+                description: match.productName,
+                cost,
+                month: match.movement.month,
+                document: match.movement.document
+            });
+        }
+
+        return { evaluatedProducts, foundCost };
+    }
 
     private static buildCostValidationFinding(
         transit: TransitItem,
@@ -315,7 +408,8 @@ export class Rule004 {
             month: number | null;
             document: string;
         }[],
-        foundCost: number
+        foundCost: number,
+        usedFallback: boolean
     ): Finding {
 
         const expectedCost =
@@ -331,7 +425,19 @@ export class Rule004 {
                     : 100
                 : Math.abs(difference / expectedCost) * 100;
 
+        /*
+         * NO EVALUABLE: ni por código adquirido ni por documento (con su
+         * fallback) se encontró ningún producto -- no hay nada contra
+         * qué comparar. Esto es DISTINTO de una incidencia real de
+         * costo: no es "el costo no coincide", es "no se pudo revisar".
+         * Antes los dos casos daban exactamente el mismo resultado
+         * mecánico (100% de diferencia, TRANSIT_COST_MISMATCH) -- ya no.
+         */
+        const noEvaluable =
+            evaluatedProducts.length === 0;
+
         const isIncident =
+            !noEvaluable &&
             differencePercent > MAX_DIFFERENCE_PERCENT;
 
         return {
@@ -342,19 +448,25 @@ export class Rule004 {
 
             productName: "",
 
-            errorType: isIncident
-                ? "TRANSIT_COST_MISMATCH"
-                : "ACCEPTED",
+            errorType: noEvaluable
+                ? "TRANSIT_COST_NOT_EVALUABLE"
+                : isIncident
+                    ? "TRANSIT_COST_MISMATCH"
+                    : "ACCEPTED",
 
-            description: isIncident
-                ? `El documento ${transit.document} presenta una diferencia de ${differencePercent.toFixed(2)}% entre el costo esperado y el costo encontrado en el Kardex.`
-                : `El documento ${transit.document} presenta una diferencia de ${differencePercent.toFixed(2)}%, dentro del porcentaje permitido.`,
+            description: noEvaluable
+                ? `El documento ${transit.document} está registrado en el Kardex, pero no se encontró ningún costo de ingreso para sus productos en el mes correspondiente (ni por código adquirido ni por documento) -- no fue posible evaluar el costo.`
+                : isIncident
+                    ? `El documento ${transit.document} presenta una diferencia de ${differencePercent.toFixed(2)}% entre el costo esperado y el costo encontrado en el Kardex.`
+                    : `El documento ${transit.document} presenta una diferencia de ${differencePercent.toFixed(2)}%, dentro del porcentaje permitido.`,
 
-            recommendation: isIncident
-                ? "Verifique la diferencia entre el costo esperado del comprobante y lo registrado en el Kardex."
-                : "No requiere acción. La diferencia se encuentra dentro del porcentaje permitido.",
+            recommendation: noEvaluable
+                ? "Verifique manualmente este documento -- no se encontraron productos por código adquirido ni por número de documento en el mes correspondiente."
+                : isIncident
+                    ? "Verifique la diferencia entre el costo esperado del comprobante y lo registrado en el Kardex."
+                    : "No requiere acción. La diferencia se encuentra dentro del porcentaje permitido.",
 
-            riskLevel: isIncident
+            riskLevel: isIncident || noEvaluable
                 ? "MEDIO"
                 : "BAJO",
 
@@ -390,6 +502,10 @@ export class Rule004 {
                 thresholdPercent: MAX_DIFFERENCE_PERCENT,
 
                 isIncident,
+
+                noEvaluable,
+
+                usedFallback,
 
                 evaluatedProducts,
 

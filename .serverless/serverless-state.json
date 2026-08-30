@@ -232,7 +232,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787898335242-2026-08-28T06:25:35.242Z/hm-kardex-audit-processor.zip"
+                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787944871489-2026-08-28T19:21:11.489Z/hm-kardex-audit-processor.zip"
               },
               "Handler": "dist/handlers/dispatcher.handler",
               "Runtime": "nodejs20.x",
@@ -267,7 +267,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787898335242-2026-08-28T06:25:35.242Z/hm-kardex-audit-processor.zip"
+                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787944871489-2026-08-28T19:21:11.489Z/hm-kardex-audit-processor.zip"
               },
               "Handler": "dist/handlers/read-audit.handler",
               "Runtime": "nodejs20.x",
@@ -301,7 +301,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787898335242-2026-08-28T06:25:35.242Z/hm-kardex-audit-processor.zip"
+                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787944871489-2026-08-28T19:21:11.489Z/hm-kardex-audit-processor.zip"
               },
               "Handler": "dist/handlers/read-files.handler",
               "Runtime": "nodejs20.x",
@@ -335,7 +335,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787898335242-2026-08-28T06:25:35.242Z/hm-kardex-audit-processor.zip"
+                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787944871489-2026-08-28T19:21:11.489Z/hm-kardex-audit-processor.zip"
               },
               "Handler": "dist/handlers/download-files.handler",
               "Runtime": "nodejs20.x",
@@ -369,7 +369,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787898335242-2026-08-28T06:25:35.242Z/hm-kardex-audit-processor.zip"
+                "S3Key": "serverless/hm-kardex-audit-processor/dev/1787944871489-2026-08-28T19:21:11.489Z/hm-kardex-audit-processor.zip"
               },
               "Handler": "dist/handlers/parse-files.handler",
               "Runtime": "nodejs20.x",
@@ -399,54 +399,54 @@
               "ParseFilesLogGroup"
             ]
           },
-          "DispatcherLambdaVersionqOw6AeSVcRPCRh0ZuG3E7isnVRmbt0tmg52OxdPJY": {
+          "DispatcherLambdaVersionqeI7CpWy4hFg03ANRCnYQ8r5Mvm05cPOkIakcXeO6c": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "DispatcherLambdaFunction"
               },
-              "CodeSha256": "50baoZCs0y2Ue/3j2CHDIYdRLKHsd5lhGvJy4IiO/tE="
+              "CodeSha256": "zACGv9d7lwvxrCCwG/bEx7CwdDjfnLqaQbqgPFCO1Tk="
             }
           },
-          "ReadAuditLambdaVersiontPpJ8DYGGehQco6w7cw33hetuf8zjHTM1vd6uko1J0o": {
+          "ReadAuditLambdaVersionq8DmJL6eChYpV41K9xs2fBcTNFEsvdPkaBTr5kmIA": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ReadAuditLambdaFunction"
               },
-              "CodeSha256": "50baoZCs0y2Ue/3j2CHDIYdRLKHsd5lhGvJy4IiO/tE="
+              "CodeSha256": "zACGv9d7lwvxrCCwG/bEx7CwdDjfnLqaQbqgPFCO1Tk="
             }
           },
-          "ReadFilesLambdaVersioni8mesHILIABBTdwVaEjIBli5fFsgDJjHSLrQ4XgW4i0": {
+          "ReadFilesLambdaVersionjJdClhd1wwluaHIFaIpTP8g5jgzP1naht50QT7htN8": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ReadFilesLambdaFunction"
               },
-              "CodeSha256": "50baoZCs0y2Ue/3j2CHDIYdRLKHsd5lhGvJy4IiO/tE="
+              "CodeSha256": "zACGv9d7lwvxrCCwG/bEx7CwdDjfnLqaQbqgPFCO1Tk="
             }
           },
-          "DownloadFilesLambdaVersionBhUKhKN9VwjXDtQEcyPiPpCroRoRK2cSzfokDw68": {
+          "DownloadFilesLambdaVersion6Rer6vdy0mvweKhzzxE9yVxWuNXN6KSJx6rPxQF94": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "DownloadFilesLambdaFunction"
               },
-              "CodeSha256": "50baoZCs0y2Ue/3j2CHDIYdRLKHsd5lhGvJy4IiO/tE="
+              "CodeSha256": "zACGv9d7lwvxrCCwG/bEx7CwdDjfnLqaQbqgPFCO1Tk="
             }
           },
-          "ParseFilesLambdaVersionwkSnNWoz4d1Ny0DZWHufli5hnyouMh2dikdlq9W4iE": {
+          "ParseFilesLambdaVersionTQ8mt2bsqFNfAYdk9GHXtfd4dwnjAYBjJSF8IPnjOc": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ParseFilesLambdaFunction"
               },
-              "CodeSha256": "50baoZCs0y2Ue/3j2CHDIYdRLKHsd5lhGvJy4IiO/tE="
+              "CodeSha256": "zACGv9d7lwvxrCCwG/bEx7CwdDjfnLqaQbqgPFCO1Tk="
             }
           },
           "HmDashkardexDashauditDashworkflowDashdevRole": {
@@ -596,7 +596,7 @@
           "DispatcherLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "DispatcherLambdaVersionqOw6AeSVcRPCRh0ZuG3E7isnVRmbt0tmg52OxdPJY"
+              "Ref": "DispatcherLambdaVersionqeI7CpWy4hFg03ANRCnYQ8r5Mvm05cPOkIakcXeO6c"
             },
             "Export": {
               "Name": "sls-hm-kardex-audit-processor-dev-DispatcherLambdaFunctionQualifiedArn"
@@ -605,7 +605,7 @@
           "ReadAuditLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ReadAuditLambdaVersiontPpJ8DYGGehQco6w7cw33hetuf8zjHTM1vd6uko1J0o"
+              "Ref": "ReadAuditLambdaVersionq8DmJL6eChYpV41K9xs2fBcTNFEsvdPkaBTr5kmIA"
             },
             "Export": {
               "Name": "sls-hm-kardex-audit-processor-dev-ReadAuditLambdaFunctionQualifiedArn"
@@ -614,7 +614,7 @@
           "ReadFilesLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ReadFilesLambdaVersioni8mesHILIABBTdwVaEjIBli5fFsgDJjHSLrQ4XgW4i0"
+              "Ref": "ReadFilesLambdaVersionjJdClhd1wwluaHIFaIpTP8g5jgzP1naht50QT7htN8"
             },
             "Export": {
               "Name": "sls-hm-kardex-audit-processor-dev-ReadFilesLambdaFunctionQualifiedArn"
@@ -623,7 +623,7 @@
           "DownloadFilesLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "DownloadFilesLambdaVersionBhUKhKN9VwjXDtQEcyPiPpCroRoRK2cSzfokDw68"
+              "Ref": "DownloadFilesLambdaVersion6Rer6vdy0mvweKhzzxE9yVxWuNXN6KSJx6rPxQF94"
             },
             "Export": {
               "Name": "sls-hm-kardex-audit-processor-dev-DownloadFilesLambdaFunctionQualifiedArn"
@@ -632,7 +632,7 @@
           "ParseFilesLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ParseFilesLambdaVersionwkSnNWoz4d1Ny0DZWHufli5hnyouMh2dikdlq9W4iE"
+              "Ref": "ParseFilesLambdaVersionTQ8mt2bsqFNfAYdk9GHXtfd4dwnjAYBjJSF8IPnjOc"
             },
             "Export": {
               "Name": "sls-hm-kardex-audit-processor-dev-ParseFilesLambdaFunctionQualifiedArn"
@@ -751,7 +751,7 @@
         "memory": 256,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "DispatcherLambdaVersionqOw6AeSVcRPCRh0ZuG3E7isnVRmbt0tmg52OxdPJY"
+        "versionLogicalId": "DispatcherLambdaVersionqeI7CpWy4hFg03ANRCnYQ8r5Mvm05cPOkIakcXeO6c"
       },
       "readAudit": {
         "handler": "dist/handlers/read-audit.handler",
@@ -763,7 +763,7 @@
         "memory": 256,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "ReadAuditLambdaVersiontPpJ8DYGGehQco6w7cw33hetuf8zjHTM1vd6uko1J0o"
+        "versionLogicalId": "ReadAuditLambdaVersionq8DmJL6eChYpV41K9xs2fBcTNFEsvdPkaBTr5kmIA"
       },
       "readFiles": {
         "handler": "dist/handlers/read-files.handler",
@@ -775,7 +775,7 @@
         "memory": 256,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "ReadFilesLambdaVersioni8mesHILIABBTdwVaEjIBli5fFsgDJjHSLrQ4XgW4i0"
+        "versionLogicalId": "ReadFilesLambdaVersionjJdClhd1wwluaHIFaIpTP8g5jgzP1naht50QT7htN8"
       },
       "downloadFiles": {
         "handler": "dist/handlers/download-files.handler",
@@ -787,7 +787,7 @@
         "memory": 1024,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "DownloadFilesLambdaVersionBhUKhKN9VwjXDtQEcyPiPpCroRoRK2cSzfokDw68"
+        "versionLogicalId": "DownloadFilesLambdaVersion6Rer6vdy0mvweKhzzxE9yVxWuNXN6KSJx6rPxQF94"
       },
       "parseFiles": {
         "handler": "dist/handlers/parse-files.handler",
@@ -800,7 +800,7 @@
         "memory": 2048,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "ParseFilesLambdaVersionwkSnNWoz4d1Ny0DZWHufli5hnyouMh2dikdlq9W4iE"
+        "versionLogicalId": "ParseFilesLambdaVersionTQ8mt2bsqFNfAYdk9GHXtfd4dwnjAYBjJSF8IPnjOc"
       }
     },
     "configValidationMode": "warn",
@@ -858,7 +858,7 @@
     "artifact": "C:\\FRANK\\hm-kardex-audit-processor\\.serverless\\hm-kardex-audit-processor.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/hm-kardex-audit-processor/dev/1787898335242-2026-08-28T06:25:35.242Z",
+    "artifactDirectoryName": "serverless/hm-kardex-audit-processor/dev/1787944871489-2026-08-28T19:21:11.489Z",
     "artifact": "hm-kardex-audit-processor.zip"
   }
 }

@@ -106,6 +106,93 @@ test("RULE_004 vs RULE_012 (misma factura, con Flete): buscan el mismo costo en 
     assert.notEqual(finding004.metadata!.expectedCost, finding012.metadata!.expectedCost);
 });
 
+test("RULE_004 (confirmado con la usuaria, apuntes del cliente: busca por CÓDIGO y por FACTURA): si acquiredCodes no encuentra nada, cae a buscar el costo por número de documento", () => {
+    const data = auditData({
+        year: 2024,
+        transit: [transitItem({
+            document: "Fac-E001-1007",
+            acquiredCodes: "", // vacía -- así viene el 99.6% de las facturas reales
+            warehouseDate: new Date(Date.UTC(2024, 0, 13)),
+            expectedCost: 650
+        })],
+        kardex: [kardexProduct("000123", "PRODUCTO REAL", [
+            movement({ document: "Fac-E001-1007", entryQuantity: 5, entryTotalCost: 650, month: 1 })
+        ])]
+    });
+    const findings = Rule004.execute(data);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].metadata!.foundCost, 650); // ya NO es 0 -- lo encontró por documento
+    assert.equal(findings[0].errorType, "ACCEPTED");
+    assert.equal(findings[0].metadata!.usedFallback, true);
+    assert.equal(findings[0].metadata!.evaluatedProducts.length, 1);
+    assert.equal(findings[0].metadata!.evaluatedProducts[0].code, "000123");
+});
+
+test("RULE_004 (fallback por documento): también filtra por mes -- si el movimiento matcheado por documento está en OTRO mes, no cuenta", () => {
+    const data = auditData({
+        year: 2024,
+        transit: [transitItem({
+            document: "Fac-E001-2000",
+            acquiredCodes: "",
+            warehouseDate: new Date(Date.UTC(2024, 0, 10)), // enero -> mes 1
+            expectedCost: 300
+        })],
+        kardex: [kardexProduct("000999", "PRODUCTO B", [
+            movement({ document: "Fac-E001-2000", entryQuantity: 2, entryTotalCost: 300, month: 3 }) // marzo, no enero
+        ])]
+    });
+    const findings = Rule004.execute(data);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].metadata!.foundCost, 0);
+    assert.equal(findings[0].metadata!.noEvaluable, true);
+});
+
+test("RULE_004 (sin datos para evaluar): si NI por código NI por documento (con su fallback, filtrado por mes) se encuentra costo, queda noEvaluable=true -- NO es TRANSIT_COST_MISMATCH", () => {
+    const data = auditData({
+        year: 2024,
+        transit: [transitItem({
+            document: "Fac-E001-9000",
+            acquiredCodes: "",
+            warehouseDate: new Date(Date.UTC(2024, 0, 5)),
+            expectedCost: 500
+        })],
+        kardex: [kardexProduct("000111", "PRODUCTO C", [
+            // el documento SÍ aparece (documentMatches > 0) pero en otro mes
+            movement({ document: "Fac-E001-9000", entryQuantity: 1, entryTotalCost: 500, month: 5 })
+        ])]
+    });
+    const findings = Rule004.execute(data);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].metadata!.noEvaluable, true);
+    assert.equal(findings[0].errorType, "TRANSIT_COST_NOT_EVALUABLE");
+    assert.notEqual(findings[0].errorType, "TRANSIT_COST_MISMATCH");
+});
+
+test("RULE_004 (prioridad): si acquiredCodes SÍ encuentra algo, usa eso -- no hace falta caer al fallback por documento", () => {
+    const data = auditData({
+        year: 2024,
+        transit: [transitItem({
+            document: "Fac-F001-7000",
+            acquiredCodes: "000500",
+            warehouseDate: new Date(Date.UTC(2024, 0, 8)),
+            expectedCost: 200
+        })],
+        kardex: [
+            kardexProduct("000500", "PRODUCTO POR CODIGO", [
+                movement({ document: "OTRO-DOC-999", entryQuantity: 1, entryTotalCost: 200, month: 1 })
+            ]),
+            kardexProduct("000777", "PRODUCTO POR DOCUMENTO (senuelo)", [
+                movement({ document: "Fac-F001-7000", entryQuantity: 1, entryTotalCost: 999, month: 1 })
+            ])
+        ]
+    });
+    const findings = Rule004.execute(data);
+    assert.equal(findings.length, 1);
+    // Encuentra por CODIGO (200), no por documento (999) -- el codigo tiene prioridad
+    assert.equal(findings[0].metadata!.foundCost, 200);
+    assert.equal(findings[0].metadata!.usedFallback, false);
+});
+
 test("RULE_004: sin año de auditoría disponible (dato viejo), sigue funcionando como antes (compatibilidad)", () => {
     const data = auditData({
         year: undefined,

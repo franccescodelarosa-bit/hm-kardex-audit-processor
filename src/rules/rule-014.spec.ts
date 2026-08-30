@@ -51,6 +51,14 @@ test("RULE_014 (reproduce un error real): si el Cierre consolidado no coincide c
     const data = auditData({ kardex: [productoConError] });
     const findings = Rule014.execute(data);
     assert.equal(findings.length, 1);
+
+    // Confirmado contra el Anexo 03 (última línea del archivo): "EL SISTEMA
+    // DEBE EMITIR EL SIGUIENTE MENSAJE: 'ERROR DE CONSOLIDACIÓN DEL KARDEX
+    // Y LA DIFERENCIA'" -- tiene que aparecer literal en la descripción.
+    assert.match(
+        findings[0].description,
+        /ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA/
+    );
 });
 
 test("RULE_014: solo se suman entradas de OPERACIÓN 2 y salidas de OPERACIÓN 1 -- un ajuste (TipoOp 28) no debe contarse en la ecuación global", () => {
