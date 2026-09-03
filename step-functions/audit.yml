@@ -11,6 +11,11 @@ States:
         - ReadAuditLambdaFunction
         - Arn
     Next: ReadFiles
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        ResultPath: $.error
+        Next: FailAudit
 
   ReadFiles:
     Type: Task
@@ -19,7 +24,12 @@ States:
         - ReadFilesLambdaFunction
         - Arn
     Next: ParseFiles
-    
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        ResultPath: $.error
+        Next: FailAudit
+
   ParseFiles:
     Type: Task
     Resource:
@@ -27,4 +37,17 @@ States:
         - ParseFilesLambdaFunction
         - Arn
 
+    End: true
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        ResultPath: $.error
+        Next: FailAudit
+
+  FailAudit:
+    Type: Task
+    Resource:
+      Fn::GetAtt:
+        - FailAuditLambdaFunction
+        - Arn
     End: true

@@ -32,12 +32,24 @@ provider:
             - arn:aws:s3:::hm-kardex-audit-dev/*
 
 plugins:
+  - serverless-esbuild
   - serverless-step-functions
+
+#todo: empaquetar
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    exclude:
+      - "@aws-sdk/*"
 
 functions:
 
   dispatcher:
-    handler: dist/handlers/dispatcher.handler
+    handler: src/handlers/dispatcher.handler
     timeout: 30
     memorySize: 256
 
@@ -45,25 +57,30 @@ functions:
       STATE_MACHINE_ARN: arn:aws:states:us-east-1:238043187978:stateMachine:hm-kardex-audit-workflow-dev
 
   readAudit:
-    handler: dist/handlers/read-audit.handler
+    handler: src/handlers/read-audit.handler
     timeout: 30
     memorySize: 256
-  
+
   readFiles:
-    handler: dist/handlers/read-files.handler
+    handler: src/handlers/read-files.handler
     timeout: 30
     memorySize: 256
-  
+
   downloadFiles:
-    handler: dist/handlers/download-files.handler
+    handler: src/handlers/download-files.handler
     timeout: 300
     memorySize: 1024
-  
+
   parseFiles:
-    handler: dist/handlers/parse-files.handler
+    handler: src/handlers/parse-files.handler
     timeout: 900
     memorySize: 2048
     ephemeralStorageSize: 10240
+
+  failAudit:
+    handler: src/handlers/fail-audit.handler
+    timeout: 30
+    memorySize: 256
 
 stepFunctions:
   stateMachines:

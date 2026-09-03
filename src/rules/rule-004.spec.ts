@@ -193,6 +193,87 @@ test("RULE_004 (prioridad): si acquiredCodes SÍ encuentra algo, usa eso -- no h
     assert.equal(findings[0].metadata!.usedFallback, false);
 });
 
+test("RULE_004 (reproduce el bug real, reportado con captura): si el Kardex tiene un producto DUPLICADO (mismo código, dos bloques -- confirmado que este cliente tiene 75 mil duplicados vía RULE_006), el fallback por documento NO debe contar el costo dos veces", () => {
+    const data = auditData({
+        year: 2024,
+        transit: [transitItem({
+            document: "Fac-E001-1007",
+            acquiredCodes: "", // vacía, como en el caso real
+            warehouseDate: new Date(Date.UTC(2024, 0, 13)),
+            expectedCost: 650
+        })],
+        kardex: [
+            // Producto 037794, bloque 1 (el real)
+            kardexProduct("037794", "ACIDO BORICO E/POTE 50GR M/FARMAKHOL", [
+                movement({ document: "Fac-E001-1007", entryQuantity: 600, entryTotalCost: 336, month: 1 })
+            ]),
+            kardexProduct("037794", "ACIDO BORICO E/POTE 50GR M/FARMAKHOL", [
+                movement({ document: "Fac-E001-1007", entryQuantity: 600, entryTotalCost: 336, month: 1 })
+            ]),
+            kardexProduct("024939", "BICARBONATO D/SODIO E/FRASCO 50GR ANTIACIDO GASTRICO", [
+                movement({ document: "Fac-E001-1007", entryQuantity: 600, entryTotalCost: 336, month: 1 })
+            ])
+        ]
+    });
+    const findings = Rule004.execute(data);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].metadata!.foundCost, 672);
+    assert.equal(findings[0].metadata!.evaluatedProducts.length, 2);
+});
+
+test("RULE_004 (reproduce el crash real de producción): si movement.date llega como STRING en vez de Date (pasa después de guardar/leer el contexto de la auditoría como JSON en S3), no debe explotar con 'toISOString is not a function'", () => {
+    const data = auditData({
+        year: 2024,
+        transit: [transitItem({
+            document: "Fac-E001-1007",
+            acquiredCodes: "",
+            warehouseDate: new Date(Date.UTC(2024, 0, 13)),
+            expectedCost: 650
+        })],
+        kardex: [
+            kardexProduct("037794", "ACIDO BORICO E/POTE 50GR M/FARMAKHOL", [
+                movement({
+                    document: "Fac-E001-1007",
+                    entryQuantity: 600,
+                    entryTotalCost: 336,
+                    month: 1,
+                    date: "2024-01-13T00:00:00.000Z" as unknown as Date
+                })
+            ])
+        ]
+    });
+    const findings = Rule004.execute(data);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].metadata!.foundCost, 336);
+});
+
+test("RULE_004 (mismo caso, pero por acquiredCodes en vez de fallback): tampoco debe duplicar si el Kardex tiene el producto repetido", () => {
+    const data = auditData({
+        year: 2024,
+        transit: [transitItem({
+            document: "Fac-F001-9999",
+            acquiredCodes: "037794",
+            warehouseDate: new Date(Date.UTC(2024, 0, 13)),
+            expectedCost: 336
+        })],
+        kardex: [
+            kardexProduct("037794", "ACIDO BORICO E/POTE 50GR M/FARMAKHOL", [
+                movement({ document: "OTRO-DOC", entryQuantity: 600, entryTotalCost: 336, month: 1 })
+            ]),
+            kardexProduct("037794", "ACIDO BORICO E/POTE 50GR M/FARMAKHOL", [
+                movement({ document: "OTRO-DOC", entryQuantity: 600, entryTotalCost: 336, month: 1 })
+            ]),
+            kardexProduct("999999", "SENUELO", [
+                movement({ document: "Fac-F001-9999", entryQuantity: 1, entryTotalCost: 1, month: 1 })
+            ])
+        ]
+    });
+    const findings = Rule004.execute(data);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].metadata!.foundCost, 336);
+    assert.equal(findings[0].metadata!.evaluatedProducts.length, 1);
+});
+
 test("RULE_004: sin año de auditoría disponible (dato viejo), sigue funcionando como antes (compatibilidad)", () => {
     const data = auditData({
         year: undefined,

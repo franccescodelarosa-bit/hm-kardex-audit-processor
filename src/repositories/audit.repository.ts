@@ -23,4 +23,24 @@ export class AuditRepository {
             [id]
         );
     }
+
+    static async fail(id: string, errorMessage: string): Promise<void> {
+        await db.query(
+            `
+            UPDATE audit_jobs
+            SET
+                status = 'ERROR',
+                completed_at = NOW()
+            WHERE id = $1;
+            `,
+            [id]
+        );
+        await db.query(
+            `
+            INSERT INTO audit_job_logs (audit_job_id, step, status, message)
+            VALUES ($1, 'AUDIT_FAILED', 'ERROR', $2);
+            `,
+            [id, errorMessage.slice(0, 1000)]
+        );
+    }
 }

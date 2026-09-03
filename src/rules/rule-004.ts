@@ -263,6 +263,13 @@ export class Rule004 {
         return findings;
     }
 
+    private static movementDateKey(date: Date | string | null | undefined): string {
+        if (!date) {
+            return "";
+        }
+        return date instanceof Date ? date.toISOString() : String(date);
+    }
+
     private static buscarPorCodigosAdquiridos(
         kardex: KardexProduct[],
         transit: TransitItem,
@@ -293,6 +300,8 @@ export class Rule004 {
             document: string;
         }[] = [];
 
+        const vistos = new Set<string>();
+
         let foundCost = 0;
 
         for (const product of kardex) {
@@ -314,6 +323,18 @@ export class Rule004 {
                 if (Number(movement.entryQuantity || 0) <= 0) {
                     continue;
                 }
+
+                const dedupeKey = [
+                    normalizedProductCode,
+                    DocumentHelper.normalize(movement.document),
+                    this.movementDateKey(movement.date),
+                    movement.entryTotalCost
+                ].join("|");
+
+                if (vistos.has(dedupeKey)) {
+                    continue;
+                }
+                vistos.add(dedupeKey);
 
                 const cost =
                     Number(movement.entryTotalCost || 0);
@@ -359,6 +380,8 @@ export class Rule004 {
             document: string;
         }[] = [];
 
+        const vistos = new Set<string>();
+
         let foundCost = 0;
 
         for (const match of documentMatches) {
@@ -368,6 +391,18 @@ export class Rule004 {
             if (match.movement.month !== periodMonth) {
                 continue;
             }
+
+            const dedupeKey = [
+                CodeHelper.normalize(match.productCode),
+                DocumentHelper.normalize(match.movement.document),
+                this.movementDateKey(match.movement.date),
+                match.movement.entryTotalCost
+            ].join("|");
+
+            if (vistos.has(dedupeKey)) {
+                continue;
+            }
+            vistos.add(dedupeKey);
 
             const cost =
                 Number(match.movement.entryTotalCost || 0);
