@@ -209,7 +209,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/hm-kardex-audit-processor/dev/1788458984332-2026-09-03T18:09:44.332Z/hm-kardex-audit-processor.zip"
+          "S3Key": "serverless/hm-kardex-audit-processor/dev/1789358859347-2026-09-14T04:07:39.347Z/hm-kardex-audit-processor.zip"
         },
         "Handler": "src/handlers/dispatcher.handler",
         "Runtime": "nodejs20.x",
@@ -244,7 +244,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/hm-kardex-audit-processor/dev/1788458984332-2026-09-03T18:09:44.332Z/hm-kardex-audit-processor.zip"
+          "S3Key": "serverless/hm-kardex-audit-processor/dev/1789358859347-2026-09-14T04:07:39.347Z/hm-kardex-audit-processor.zip"
         },
         "Handler": "src/handlers/read-audit.handler",
         "Runtime": "nodejs20.x",
@@ -278,7 +278,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/hm-kardex-audit-processor/dev/1788458984332-2026-09-03T18:09:44.332Z/hm-kardex-audit-processor.zip"
+          "S3Key": "serverless/hm-kardex-audit-processor/dev/1789358859347-2026-09-14T04:07:39.347Z/hm-kardex-audit-processor.zip"
         },
         "Handler": "src/handlers/read-files.handler",
         "Runtime": "nodejs20.x",
@@ -312,7 +312,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/hm-kardex-audit-processor/dev/1788458984332-2026-09-03T18:09:44.332Z/hm-kardex-audit-processor.zip"
+          "S3Key": "serverless/hm-kardex-audit-processor/dev/1789358859347-2026-09-14T04:07:39.347Z/hm-kardex-audit-processor.zip"
         },
         "Handler": "src/handlers/download-files.handler",
         "Runtime": "nodejs20.x",
@@ -346,7 +346,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/hm-kardex-audit-processor/dev/1788458984332-2026-09-03T18:09:44.332Z/hm-kardex-audit-processor.zip"
+          "S3Key": "serverless/hm-kardex-audit-processor/dev/1789358859347-2026-09-14T04:07:39.347Z/hm-kardex-audit-processor.zip"
         },
         "Handler": "src/handlers/parse-files.handler",
         "Runtime": "nodejs20.x",
@@ -383,7 +383,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/hm-kardex-audit-processor/dev/1788458984332-2026-09-03T18:09:44.332Z/hm-kardex-audit-processor.zip"
+          "S3Key": "serverless/hm-kardex-audit-processor/dev/1789358859347-2026-09-14T04:07:39.347Z/hm-kardex-audit-processor.zip"
         },
         "Handler": "src/handlers/fail-audit.handler",
         "Runtime": "nodejs20.x",
@@ -410,64 +410,64 @@
         "FailAuditLogGroup"
       ]
     },
-    "DispatcherLambdaVersion0oNcAespqrCNrfqo0fEf4pcrn4nRJbp8ReG09Y": {
+    "DispatcherLambdaVersionE6jiSmXaSm8vr8mpj0yH8GY8UMShzFSNMEtAyheJ4g": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "DispatcherLambdaFunction"
         },
-        "CodeSha256": "ZcbF0ixhvUjx883nYZNMdl1wmI8Qdt2RB6cViGLlSDQ="
+        "CodeSha256": "fRDp2BJeTwc5n29MOC7s4Bw9L5VuZPiN9vEK55ph56s="
       }
     },
-    "ReadAuditLambdaVersiongx9N804WcZsZKPWeneAUWINbAvF7L4ceYlxCgtrPGQ": {
+    "ReadAuditLambdaVersionKBbKjwCYdDpffHJVUQEDQGOSSQ0nAVPTsMgNKS0wVwU": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ReadAuditLambdaFunction"
         },
-        "CodeSha256": "ZcbF0ixhvUjx883nYZNMdl1wmI8Qdt2RB6cViGLlSDQ="
+        "CodeSha256": "fRDp2BJeTwc5n29MOC7s4Bw9L5VuZPiN9vEK55ph56s="
       }
     },
-    "ReadFilesLambdaVersionFy6WHxAlpEFYJbXhJWEoN9nRsLX0qyfd4JpUgbVwDE": {
+    "ReadFilesLambdaVersionUbkLpCpcwZPfH1arRObkpPtpDRuGtMCh8dPy07m8": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ReadFilesLambdaFunction"
         },
-        "CodeSha256": "ZcbF0ixhvUjx883nYZNMdl1wmI8Qdt2RB6cViGLlSDQ="
+        "CodeSha256": "fRDp2BJeTwc5n29MOC7s4Bw9L5VuZPiN9vEK55ph56s="
       }
     },
-    "DownloadFilesLambdaVersionjLpcAydoYepFwdX4lTFhWIvCLCRYaP8jxxEbcdjg": {
+    "DownloadFilesLambdaVersion7Fcf1FU4HdhOcOtoCCQHiZXQExNCTlivpwicmO1U": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "DownloadFilesLambdaFunction"
         },
-        "CodeSha256": "ZcbF0ixhvUjx883nYZNMdl1wmI8Qdt2RB6cViGLlSDQ="
+        "CodeSha256": "fRDp2BJeTwc5n29MOC7s4Bw9L5VuZPiN9vEK55ph56s="
       }
     },
-    "ParseFilesLambdaVersionaIlYaJYYM5aSNqNpWG9LdCOoqIAgIoXjNlIui66yf5M": {
+    "ParseFilesLambdaVersionNxjagkCXZ7zHXZRSfWImbQaVUujDjz0NrLNuEWKk": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ParseFilesLambdaFunction"
         },
-        "CodeSha256": "ZcbF0ixhvUjx883nYZNMdl1wmI8Qdt2RB6cViGLlSDQ="
+        "CodeSha256": "fRDp2BJeTwc5n29MOC7s4Bw9L5VuZPiN9vEK55ph56s="
       }
     },
-    "FailAuditLambdaVersionTUkJSUIDHL2nF1mRzaAbpfX2Jn5YqqrhvN7x9Zw6No": {
+    "FailAuditLambdaVersion3ucLGwlxRpm1W1Z15InoSau1zdyZ0O6VV8x4Pm469Q": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "FailAuditLambdaFunction"
         },
-        "CodeSha256": "ZcbF0ixhvUjx883nYZNMdl1wmI8Qdt2RB6cViGLlSDQ="
+        "CodeSha256": "fRDp2BJeTwc5n29MOC7s4Bw9L5VuZPiN9vEK55ph56s="
       }
     },
     "HmDashkardexDashauditDashworkflowDashdevRole": {
@@ -642,7 +642,7 @@
     "DispatcherLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "DispatcherLambdaVersion0oNcAespqrCNrfqo0fEf4pcrn4nRJbp8ReG09Y"
+        "Ref": "DispatcherLambdaVersionE6jiSmXaSm8vr8mpj0yH8GY8UMShzFSNMEtAyheJ4g"
       },
       "Export": {
         "Name": "sls-hm-kardex-audit-processor-dev-DispatcherLambdaFunctionQualifiedArn"
@@ -651,7 +651,7 @@
     "ReadAuditLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ReadAuditLambdaVersiongx9N804WcZsZKPWeneAUWINbAvF7L4ceYlxCgtrPGQ"
+        "Ref": "ReadAuditLambdaVersionKBbKjwCYdDpffHJVUQEDQGOSSQ0nAVPTsMgNKS0wVwU"
       },
       "Export": {
         "Name": "sls-hm-kardex-audit-processor-dev-ReadAuditLambdaFunctionQualifiedArn"
@@ -660,7 +660,7 @@
     "ReadFilesLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ReadFilesLambdaVersionFy6WHxAlpEFYJbXhJWEoN9nRsLX0qyfd4JpUgbVwDE"
+        "Ref": "ReadFilesLambdaVersionUbkLpCpcwZPfH1arRObkpPtpDRuGtMCh8dPy07m8"
       },
       "Export": {
         "Name": "sls-hm-kardex-audit-processor-dev-ReadFilesLambdaFunctionQualifiedArn"
@@ -669,7 +669,7 @@
     "DownloadFilesLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "DownloadFilesLambdaVersionjLpcAydoYepFwdX4lTFhWIvCLCRYaP8jxxEbcdjg"
+        "Ref": "DownloadFilesLambdaVersion7Fcf1FU4HdhOcOtoCCQHiZXQExNCTlivpwicmO1U"
       },
       "Export": {
         "Name": "sls-hm-kardex-audit-processor-dev-DownloadFilesLambdaFunctionQualifiedArn"
@@ -678,7 +678,7 @@
     "ParseFilesLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ParseFilesLambdaVersionaIlYaJYYM5aSNqNpWG9LdCOoqIAgIoXjNlIui66yf5M"
+        "Ref": "ParseFilesLambdaVersionNxjagkCXZ7zHXZRSfWImbQaVUujDjz0NrLNuEWKk"
       },
       "Export": {
         "Name": "sls-hm-kardex-audit-processor-dev-ParseFilesLambdaFunctionQualifiedArn"
@@ -687,7 +687,7 @@
     "FailAuditLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "FailAuditLambdaVersionTUkJSUIDHL2nF1mRzaAbpfX2Jn5YqqrhvN7x9Zw6No"
+        "Ref": "FailAuditLambdaVersion3ucLGwlxRpm1W1Z15InoSau1zdyZ0O6VV8x4Pm469Q"
       },
       "Export": {
         "Name": "sls-hm-kardex-audit-processor-dev-FailAuditLambdaFunctionQualifiedArn"

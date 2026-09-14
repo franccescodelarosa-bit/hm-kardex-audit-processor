@@ -61,16 +61,42 @@ test("RULE_014 (reproduce un error real): si el Cierre consolidado no coincide c
     );
 });
 
-test("RULE_014: solo se suman entradas de OPERACIÓN 2 y salidas de OPERACIÓN 1 -- un ajuste (TipoOp 28) no debe contarse en la ecuación global", () => {
+test("RULE_014 (Tabla 12, confirmada con el cliente -- reemplaza la versión anterior): un ajuste por SOBRANTE (TipoOp 28) SÍ cuenta como Entrada en la ecuación global", () => {
     const producto = kardexProduct("0000030", "PRODUCTO CON AJUSTE", [
         movement({ operation: "16", balanceQuantity: 100, balanceUnitCost: 5, balanceTotalCost: 500, month: 1 }),
         movement({ operation: "28", entryQuantity: 10, entryTotalCost: 50, balanceQuantity: 110, balanceTotalCost: 550, month: 1 }) // ajuste por sobrante
     ]);
     const data = auditData({ kardex: [producto] });
     const findings = Rule014.execute(data);
-    // Inicio(500) + Entrada op.2 (0, el ajuste NO cuenta) - Salida op.1 (0) = 500
-    // Cierre real = 550 (por el ajuste) -> esperado(500) != cierre(550) -> SÍ hallazgo
-    assert.equal(findings.length, 1);
+    // Inicio(500) + Entrada [op.28 SÍ cuenta ahora] (50) - Salida (0) = 550
+    // Cierre real = 550 -> esperado(550) == cierre(550) -> sin hallazgo
+    assert.equal(findings.length, 0);
+});
+
+test("RULE_014 (Tabla 12): un ajuste por FALTANTE (TipoOp 28, del lado de Salida) SÍ cuenta como Salida en la ecuación global", () => {
+    const producto = kardexProduct("0000031", "PRODUCTO CON AJUSTE POR FALTANTE", [
+        movement({ operation: "16", balanceQuantity: 100, balanceUnitCost: 5, balanceTotalCost: 500, month: 1 }),
+        movement({ operation: "28", exitQuantity: 10, exitTotalCost: 50, balanceQuantity: 90, balanceTotalCost: 450, month: 1 }) // ajuste por faltante
+    ]);
+    const data = auditData({ kardex: [producto] });
+    const findings = Rule014.execute(data);
+    // Inicio(500) + Entrada (0) - Salida [op.28 SÍ cuenta ahora] (50) = 450
+    // Cierre real = 450 -> esperado(450) == cierre(450) -> sin hallazgo
+    assert.equal(findings.length, 0);
+});
+
+test("RULE_014 (Tabla 12): devolución recibida (op 05), promoción (op 07) y autoconsumo (op 99.1) también cuentan en la ecuación global", () => {
+    const producto = kardexProduct("0000032", "PRODUCTO CON OPERACIONES NUEVAS", [
+        movement({ operation: "16", balanceQuantity: 100, balanceUnitCost: 5, balanceTotalCost: 500, month: 1 }),
+        movement({ operation: "05", entryQuantity: 5, entryTotalCost: 25, balanceQuantity: 105, balanceTotalCost: 525, month: 1 }), // devolución recibida
+        movement({ operation: "07", exitQuantity: 2, exitTotalCost: 10, balanceQuantity: 103, balanceTotalCost: 515, month: 1 }), // promoción
+        movement({ operation: "99.1", exitQuantity: 3, exitTotalCost: 15, balanceQuantity: 100, balanceTotalCost: 500, month: 1 }) // autoconsumo
+    ]);
+    const data = auditData({ kardex: [producto] });
+    const findings = Rule014.execute(data);
+    // Inicio(500) + Entrada [op.05] (25) - Salida [op.07 + op.99.1] (10+15=25) = 500
+    // Cierre real = 500 -> esperado(500) == cierre(500) -> sin hallazgo
+    assert.equal(findings.length, 0);
 });
 
 test("RULE_014 (confirmado con el diagrama oficial y el Anexo 03: 'SOLO saldo, no cantidades'): si la CANTIDAD no cierra pero el COSTO sí, NO genera hallazgo", () => {

@@ -56,9 +56,16 @@ export class Rule014 {
      */
     private static readonly QUANTITY_TOLERANCE = 0.01;
 
-    private static readonly ENTRY_OPERATION = "02";
-    private static readonly EXIT_OPERATION = "01";
+    
+    private static readonly ENTRY_OPERATIONS = ["02", "05", "11", "28"];
+    private static readonly EXIT_OPERATIONS = ["01", "06", "07", "10", "11", "12", "13", "14", "15", "28", "99.1"];
     private static readonly INITIAL_BALANCE_OPERATION = "16";
+
+    /** Normaliza el código de operación al mismo formato de la Tabla 12 (2 dígitos, salvo "99.1"). */
+    private static normalizeOperation(operation: string | number): string {
+        const code = String(operation).trim();
+        return code === "99.1" ? code : code.padStart(2, "0");
+    }
 
     private static equals(
         a: number,
@@ -192,49 +199,55 @@ export class Rule014 {
 
                 /*
                  * ----------------------------------------------------
-                 * ENTRADAS DEL PRODUCTO (ANEXO 03, punto 2)
+                 * ENTRADAS DEL PRODUCTO (Tabla 12, confirmada con el
+                 * cliente)
                  * ----------------------------------------------------
-                 * "Sumar todos los saldos de entrada de operación 2" —
-                 * solo compras, no ajustes ni otras operaciones.
+                 * "Sumar todos los saldos de entrada de operación 2, 5,
+                 * 11 y 28" -- compras, devoluciones recibidas,
+                 * transferencias entre almacenes y ajustes por sobrante.
                  */
-                const entradasCompra =
+                const entradasElegibles =
                     movements.filter(
-                        m => String(m.operation).trim() === this.ENTRY_OPERATION
+                        m => this.ENTRY_OPERATIONS.includes(this.normalizeOperation(m.operation))
                     );
 
                 const totalEntryQuantity =
-                    entradasCompra.reduce(
-                        (sum, movement) => sum + movement.entryQuantity,
+                    entradasElegibles.reduce(
+                        (sum, movement) => sum + (movement.entryQuantity || 0),
                         0
                     );
 
                 const totalEntryCost =
-                    entradasCompra.reduce(
-                        (sum, movement) => sum + movement.entryTotalCost,
+                    entradasElegibles.reduce(
+                        (sum, movement) => sum + (movement.entryTotalCost || 0),
                         0
                     );
 
                 /*
                  * ----------------------------------------------------
-                 * SALIDAS DEL PRODUCTO (ANEXO 03, punto 3)
+                 * SALIDAS DEL PRODUCTO (Tabla 12, confirmada con el
+                 * cliente)
                  * ----------------------------------------------------
-                 * "Sumar todos los saldos de salida de operación 1" —
-                 * solo ventas, no ajustes ni otras operaciones.
+                 * "Sumar todos los saldos de salida de operación 1, 6,
+                 * 7, 10, 11, 12, 13, 14, 15, 28 y 99.1" -- ventas,
+                 * devoluciones entregadas, promociones, producción,
+                 * transferencias, retiros, mermas, desmedros,
+                 * destrucción, ajustes por faltante y autoconsumo.
                  */
-                const salidasVenta =
+                const salidasElegibles =
                     movements.filter(
-                        m => String(m.operation).trim() === this.EXIT_OPERATION
+                        m => this.EXIT_OPERATIONS.includes(this.normalizeOperation(m.operation))
                     );
 
                 const totalExitQuantity =
-                    salidasVenta.reduce(
-                        (sum, movement) => sum + movement.exitQuantity,
+                    salidasElegibles.reduce(
+                        (sum, movement) => sum + (movement.exitQuantity || 0),
                         0
                     );
 
                 const totalExitCost =
-                    salidasVenta.reduce(
-                        (sum, movement) => sum + movement.exitTotalCost,
+                    salidasElegibles.reduce(
+                        (sum, movement) => sum + (movement.exitTotalCost || 0),
                         0
                     );
 

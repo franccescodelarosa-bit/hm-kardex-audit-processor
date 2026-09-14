@@ -17,6 +17,14 @@ export class Rule013 {
         return Math.round(a * 100) === Math.round(b * 100);
     }
 
+    private static roundToPrecision(value: number): number {
+        return Math.round(value * 1000000) / 1000000;
+    }
+
+    private static strictEqual(a: number, b: number): boolean {
+        return Math.abs(a - b) < 0.0000001;
+    }
+
     static execute(data: AuditData): Finding[] {
 
         const findings: Finding[] = [];
@@ -28,65 +36,100 @@ export class Rule013 {
             }
 
             const month = product.movements.find(m => m.month !== null)?.month ?? 0;
+            const normalizedCode = CodeHelper.normalize(product.code);
 
             const [first, ...rest] = product.movements;
 
             if (rest.length === 0) {
-                // Solo Saldo Inicial, nada para recalcular en este período.
                 continue;
             }
 
-            let cantidadAcumulada = first.balanceQuantity;
-            let valorAcumulado = first.balanceTotalCost;
-            let cpp = cantidadAcumulada > 0 ? valorAcumulado / cantidadAcumulada : 0;
+            let cantidadArchivo = first.balanceQuantity;
+            let valorArchivo = first.balanceTotalCost;
 
-            let totalEntradaCantidad = 0;
-            let totalEntradaCosto = 0;
+            let cpp = cantidadArchivo > 0 ? valorArchivo / cantidadArchivo : 0;
+
             let totalSalidaCantidadRecalculada = 0;
             let totalSalidaCostoRecalculado = 0;
             let totalSalidaCostoArchivo = 0;
 
+            const unitCostMismatches: Array<{
+                date: Date | null;
+                document: string;
+                quantity: number;
+                expectedTotalCost: number;
+                foundTotalCost: number;
+            }> = [];
+
             for (const movement of rest) {
+
                 this.applyMovement(movement, {
+
                     onEntry: () => {
-                        const nuevoValor = valorAcumulado + movement.entryTotalCost;
-                        const nuevaCantidad = cantidadAcumulada + movement.entryQuantity;
-                        cpp = nuevaCantidad > 0 ? nuevoValor / nuevaCantidad : 0;
-                        valorAcumulado = nuevoValor;
-                        cantidadAcumulada = nuevaCantidad;
-                        totalEntradaCantidad += movement.entryQuantity;
-                        totalEntradaCosto += movement.entryTotalCost;
+
+                        const cantidadFila = movement.balanceQuantity;
+
+                        cpp =
+                            cantidadFila > 0
+                                ? (movement.entryTotalCost + valorArchivo) / cantidadFila
+                                : 0;
+
+                        if (cantidadFila > 0) {
+
+                            const encontradoFila = movement.entryTotalCost + valorArchivo;
+                            const archivoFilaTotal = movement.balanceTotalCost;
+
+                            if (!this.centsEqual(encontradoFila, archivoFilaTotal)) {
+                                unitCostMismatches.push({
+                                    date: movement.date,
+                                    document: movement.document,
+                                    quantity: cantidadFila,
+                                    expectedTotalCost: archivoFilaTotal,
+                                    foundTotalCost: this.roundToCents(encontradoFila)
+                                });
+                            }
+                        }
                     },
+
                     onExit: () => {
-                        const costoSalida = cpp * movement.exitQuantity;
-                        valorAcumulado -= costoSalida;
-                        cantidadAcumulada -= movement.exitQuantity;
-                        // El CPP NO cambia en una salida.
+
+                        const cppVigenteArchivo =
+                            cantidadArchivo > 0 ? valorArchivo / cantidadArchivo : 0;
+
+                        const costoSalida = cppVigenteArchivo * movement.exitQuantity;
+
                         totalSalidaCantidadRecalculada += movement.exitQuantity;
                         totalSalidaCostoRecalculado += costoSalida;
                         totalSalidaCostoArchivo += movement.exitTotalCost;
                     }
                 });
+                cantidadArchivo = movement.balanceQuantity;
+                valorArchivo = movement.balanceTotalCost;
             }
 
             const last = product.movements[product.movements.length - 1];
 
+            const cantidadFinal = last.balanceQuantity;
+            const valorFinalCalculado = cpp * cantidadFinal;
+
             const differences: string[] = [];
 
-            const salidaCoincide = this.centsEqual(totalSalidaCostoRecalculado, totalSalidaCostoArchivo);
+            const salidaCoincide =
+                this.centsEqual(totalSalidaCostoRecalculado, totalSalidaCostoArchivo);
+
             if (!salidaCoincide) {
                 differences.push("Costo Total de Salidas");
             }
 
-            const saldoFinalCoincide = this.centsEqual(valorAcumulado, last.balanceTotalCost);
-            if (!saldoFinalCoincide) {
-                differences.push("Costo Total de Saldo Final");
+            if (unitCostMismatches.length > 0) {
+                differences.push("Costo Unitario de Saldo Final");
             }
 
-            const cantidadEsCero = this.centsEqual(cantidadAcumulada, 0) && this.centsEqual(last.balanceQuantity, 0);
-            const costoUnitarioCoincide = cantidadEsCero || this.centsEqual(cpp, last.balanceUnitCost);
-            if (!costoUnitarioCoincide) {
-                differences.push("Costo Unitario de Saldo Final");
+            const saldoFinalCoincide =
+                this.strictEqual(valorFinalCalculado, last.balanceTotalCost);
+
+            if (!saldoFinalCoincide) {
+                differences.push("Costo Total de Saldo Final");
             }
 
             if (differences.length === 0) {
@@ -102,46 +145,30 @@ export class Rule013 {
                     `Las sumatorias del producto ${product.code} no cumplen la metodología de Costo Promedio ` +
                     `Ponderado para el mes ${month}. Diferencias: ${differences.join(", ")}.`,
                 recommendation:
-                    "Verifique el cálculo del Costo Promedio Ponderado: las entradas deben recalcularlo, " +
-                    "las salidas deben usar el CPP vigente sin modificarlo.",
+                    "Verifique el cálculo del Costo Promedio Ponderado: las entradas deben recalcularlo con el " +
+                    "saldo que el Kardex tenía justo antes de cada una, las salidas deben usar el CPP vigente " +
+                    "sin modificarlo.",
                 riskLevel: "CRITICO",
                 metadata: {
                     month,
-                    normalizedCode: CodeHelper.normalize(product.code),
-                    initialBalance: {
-                        quantity: first.balanceQuantity,
-                        totalCost: first.balanceTotalCost
-                    },
+                    normalizedCode,
                     totals: {
-                        entry: {
-                            quantity: totalEntradaCantidad,
-                            totalCost: this.roundToCents(totalEntradaCosto)
-                        },
                         exit: {
                             quantity: totalSalidaCantidadRecalculada,
                             totalCost: this.roundToCents(totalSalidaCostoRecalculado),
                             totalCostArchivo: this.roundToCents(totalSalidaCostoArchivo)
                         }
                     },
+                    unitCostMismatches,
                     expectedFinalBalance: {
-                        quantity: cantidadAcumulada,
-                        unitCost: this.roundToCents(cpp),
-                        totalCost: this.roundToCents(valorAcumulado)
-                    },
-                    costTolerance: {
-                        percentage: 0,
-                        lowerLimit: this.roundToCents(valorAcumulado),
-                        upperLimit: this.roundToCents(valorAcumulado)
+                        quantity: cantidadFinal,
+                        unitCost: this.roundToPrecision(cpp),
+                        totalCost: this.roundToPrecision(valorFinalCalculado)
                     },
                     actualFinalBalance: {
-                        quantity: last.balanceQuantity,
+                        quantity: cantidadFinal,
                         unitCost: last.balanceUnitCost,
                         totalCost: last.balanceTotalCost
-                    },
-                    difference: {
-                        quantity: Number((cantidadAcumulada - last.balanceQuantity).toFixed(2)),
-                        unitCost: this.roundToCents(cpp - last.balanceUnitCost),
-                        totalCost: this.roundToCents(valorAcumulado - last.balanceTotalCost)
                     },
                     movementCount: product.movements.length,
                     differences
