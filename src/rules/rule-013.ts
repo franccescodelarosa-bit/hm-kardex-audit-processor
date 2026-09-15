@@ -53,12 +53,17 @@ export class Rule013 {
             let totalSalidaCostoRecalculado = 0;
             let totalSalidaCostoArchivo = 0;
 
+            let totalEntradaCantidad = 0;
+            let totalEntradaCosto = 0;
+
             const unitCostMismatches: Array<{
                 date: Date | null;
                 document: string;
                 quantity: number;
                 expectedTotalCost: number;
                 foundTotalCost: number;
+                expectedUnitCost: number;
+                foundUnitCost: number;
             }> = [];
 
             for (const movement of rest) {
@@ -68,6 +73,9 @@ export class Rule013 {
                     onEntry: () => {
 
                         const cantidadFila = movement.balanceQuantity;
+
+                        totalEntradaCantidad += movement.entryQuantity;
+                        totalEntradaCosto += movement.entryTotalCost;
 
                         cpp =
                             cantidadFila > 0
@@ -85,7 +93,9 @@ export class Rule013 {
                                     document: movement.document,
                                     quantity: cantidadFila,
                                     expectedTotalCost: archivoFilaTotal,
-                                    foundTotalCost: this.roundToCents(encontradoFila)
+                                    foundTotalCost: this.roundToCents(encontradoFila),
+                                    expectedUnitCost: movement.balanceUnitCost,
+                                    foundUnitCost: this.roundToPrecision(cpp)
                                 });
                             }
                         }
@@ -152,7 +162,15 @@ export class Rule013 {
                 metadata: {
                     month,
                     normalizedCode,
+                    initialBalance: {
+                        quantity: first.balanceQuantity,
+                        totalCost: this.roundToCents(first.balanceTotalCost)
+                    },
                     totals: {
+                        entry: {
+                            quantity: totalEntradaCantidad,
+                            totalCost: this.roundToCents(totalEntradaCosto)
+                        },
                         exit: {
                             quantity: totalSalidaCantidadRecalculada,
                             totalCost: this.roundToCents(totalSalidaCostoRecalculado),

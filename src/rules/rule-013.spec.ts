@@ -109,6 +109,8 @@ test("RULE_013 (Costo Unitario de Saldo Final, por entrada): una entrada con Cos
     assert.equal(mismatches[0].quantity, 200);
     assert.equal(mismatches[0].expectedTotalCost, 2450); // lo que puso el archivo en esa fila
     assert.equal(mismatches[0].foundTotalCost, 2400);    // lo que da la fórmula re-anclada
+    assert.equal(mismatches[0].expectedUnitCost, 12.25);  // pp del archivo en esa fila
+    assert.equal(mismatches[0].foundUnitCost, 12);        // pp recalculado (re-anclado) de esa entrada
 });
 
 test("RULE_013 (reproduce el caso real masivo): si la cantidad final es CERO, NO se valida el Costo Unitario -- 0 x cualquier costo da 0, es matematicamente indeterminado", () => {
@@ -124,10 +126,28 @@ test("RULE_013 (reproduce el caso real masivo): si la cantidad final es CERO, NO
 
 test("RULE_013 (caso real 000129, confirmado con el cliente): Costo Unitario de Saldo Final se valida por cada entrada, Costo Total de Saldo Final se valida una vez al cierre real del mes", () => {
     const movimientos = [
-        movement({ operation: "16", document: "00 Saldo Inicial", balanceQuantity: 0, balanceUnitCost: 0, balanceTotalCost: 0, month: 1 }),
+        movement({ operation: "16", document: "00 Saldo Inicial", balanceQuantity: 12, balanceUnitCost: 6.16, balanceTotalCost: 73.92, month: 1 }),
+        movement({ operation: "01", document: "BV01-00407744", exitQuantity: 1, exitUnitCost: 6.16, exitTotalCost: 6.16, balanceQuantity: 11, balanceUnitCost: 6.16, balanceTotalCost: 67.76, month: 1 }),
+        movement({ operation: "01", document: "BV01-00407746", exitQuantity: 2, exitUnitCost: 6.16, exitTotalCost: 12.32, balanceQuantity: 9, balanceUnitCost: 6.16, balanceTotalCost: 55.44, month: 1 }),
+        movement({ operation: "01", document: "BV01-00407792", exitQuantity: 1, exitUnitCost: 6.16, exitTotalCost: 6.16, balanceQuantity: 8, balanceUnitCost: 6.16, balanceTotalCost: 49.28, month: 1 }),
+        movement({ operation: "01", document: "BV01-00407850", exitQuantity: 1, exitUnitCost: 6.16, exitTotalCost: 6.16, balanceQuantity: 7, balanceUnitCost: 6.16, balanceTotalCost: 43.12, month: 1 }),
+        movement({ operation: "01", document: "BV01-00407997", exitQuantity: 2, exitUnitCost: 6.16, exitTotalCost: 12.32, balanceQuantity: 5, balanceUnitCost: 6.16, balanceTotalCost: 30.80, month: 1 }),
+        movement({ operation: "01", document: "BV01-00408079", exitQuantity: 2, exitUnitCost: 6.16, exitTotalCost: 12.32, balanceQuantity: 3, balanceUnitCost: 6.16, balanceTotalCost: 18.48, month: 1 }),
+        movement({ operation: "01", document: "BV01-00408234", exitQuantity: 2, exitUnitCost: 6.16, exitTotalCost: 12.32, balanceQuantity: 1, balanceUnitCost: 6.16, balanceTotalCost: 6.16, month: 1 }),
+        movement({ operation: "01", document: "BV01-00408291", exitQuantity: 1, exitUnitCost: 6.16, exitTotalCost: 6.16, balanceQuantity: 0, balanceUnitCost: 6.16, balanceTotalCost: 0, month: 1 }),
         movement({ operation: "02", document: "F001-00004970", entryQuantity: 60, entryUnitCost: 5.78, entryTotalCost: 346.80, balanceQuantity: 60, balanceUnitCost: 5.97, balanceTotalCost: 358.20, month: 1 }),
         movement({ operation: "02", document: "F001-00004994", entryQuantity: 60, entryUnitCost: 5.90, entryTotalCost: 354.00, balanceQuantity: 120, balanceUnitCost: 5.94, balanceTotalCost: 712.80, month: 1 }),
-        movement({ operation: "01", document: "Venta 1", exitQuantity: 25, exitUnitCost: 5.94, exitTotalCost: 148.50, balanceQuantity: 95, balanceUnitCost: 5.94, balanceTotalCost: 564.30, month: 1 })
+        movement({ operation: "01", document: "BV01-00409552", exitQuantity: 1, exitUnitCost: 5.94, exitTotalCost: 5.94, balanceQuantity: 119, balanceUnitCost: 5.94, balanceTotalCost: 706.86, month: 1 }),
+        movement({ operation: "01", document: "BV01-00409650", exitQuantity: 1, exitUnitCost: 5.94, exitTotalCost: 5.94, balanceQuantity: 118, balanceUnitCost: 5.94, balanceTotalCost: 700.92, month: 1 }),
+        movement({ operation: "01", document: "BV01-00409652", exitQuantity: 1, exitUnitCost: 5.94, exitTotalCost: 5.94, balanceQuantity: 117, balanceUnitCost: 5.94, balanceTotalCost: 694.98, month: 1 }),
+        movement({ operation: "01", document: "BV01-00409855", exitQuantity: 1, exitUnitCost: 5.94, exitTotalCost: 5.94, balanceQuantity: 116, balanceUnitCost: 5.94, balanceTotalCost: 689.04, month: 1 }),
+        movement({ operation: "01", document: "BV01-00409864", exitQuantity: 1, exitUnitCost: 5.94, exitTotalCost: 5.94, balanceQuantity: 115, balanceUnitCost: 5.94, balanceTotalCost: 683.10, month: 1 }),
+        movement({ operation: "01", document: "FT01-00027254", exitQuantity: 6, exitUnitCost: 5.94, exitTotalCost: 35.64, balanceQuantity: 109, balanceUnitCost: 5.94, balanceTotalCost: 647.46, month: 1 }),
+        movement({ operation: "01", document: "BV01-00410155", exitQuantity: 6, exitUnitCost: 5.94, exitTotalCost: 35.64, balanceQuantity: 103, balanceUnitCost: 5.94, balanceTotalCost: 611.82, month: 1 }),
+        movement({ operation: "01", document: "BV01-00410179", exitQuantity: 1, exitUnitCost: 5.94, exitTotalCost: 5.94, balanceQuantity: 102, balanceUnitCost: 5.94, balanceTotalCost: 605.88, month: 1 }),
+        movement({ operation: "01", document: "BV01-00410266", exitQuantity: 2, exitUnitCost: 5.94, exitTotalCost: 11.88, balanceQuantity: 100, balanceUnitCost: 5.94, balanceTotalCost: 594.00, month: 1 }),
+        movement({ operation: "01", document: "BV01-00410401", exitQuantity: 4, exitUnitCost: 5.94, exitTotalCost: 23.76, balanceQuantity: 96, balanceUnitCost: 5.94, balanceTotalCost: 570.24, month: 1 }),
+        movement({ operation: "01", document: "BV01-00410439", exitQuantity: 1, exitUnitCost: 5.94, exitTotalCost: 5.94, balanceQuantity: 95, balanceUnitCost: 5.94, balanceTotalCost: 564.30, month: 1 })
     ];
 
     const data = auditData({
@@ -149,11 +169,22 @@ test("RULE_013 (caso real 000129, confirmado con el cliente): Costo Unitario de 
     assert.equal(meta.unitCostMismatches[0].quantity, 60);
     assert.equal(meta.unitCostMismatches[0].expectedTotalCost, 358.20); // archivo
     assert.equal(meta.unitCostMismatches[0].foundTotalCost, 346.80);    // fórmula re-anclada
+    assert.equal(meta.unitCostMismatches[0].expectedUnitCost, 5.97);    // pp del archivo, esa fila
+    assert.equal(meta.unitCostMismatches[0].foundUnitCost, 5.78);       // pp recalculado de esa entrada
 
     assert.equal(meta.unitCostMismatches[1].document, "F001-00004994");
     assert.equal(meta.unitCostMismatches[1].quantity, 120);
     assert.equal(meta.unitCostMismatches[1].expectedTotalCost, 712.80); // archivo
     assert.equal(meta.unitCostMismatches[1].foundTotalCost, 712.20);    // fórmula re-anclada
+    assert.equal(meta.unitCostMismatches[1].expectedUnitCost, 5.94);    // pp del archivo, esa fila
+    assert.equal(meta.unitCostMismatches[1].foundUnitCost, 5.935);      // pp recalculado de esa entrada
+
+    assert.equal(meta.initialBalance.quantity, 12);
+    assert.equal(meta.initialBalance.totalCost, 73.92);
+    assert.equal(meta.totals.entry.quantity, 120);
+    assert.equal(meta.totals.entry.totalCost, 700.80);
+    assert.equal(meta.totals.exit.quantity, 37);
+    assert.equal(meta.totals.exit.totalCost, 222.42);
 
     assert.equal(meta.expectedFinalBalance.quantity, 95);
     assert.equal(meta.expectedFinalBalance.unitCost, 5.935);
